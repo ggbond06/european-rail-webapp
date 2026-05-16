@@ -773,6 +773,7 @@ function RailMap({ path, locations }) {
       scrollWheelZoom: false,
       attributionControl: true,
     }).setView([48.6, 7.8], 5);
+    mapRef.current.attributionControl.setPrefix(false);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 18,
