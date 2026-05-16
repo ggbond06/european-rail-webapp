@@ -44,6 +44,14 @@ public class WebApp {
             "data/pricing-cache.tsv",
             "pricing-cache.tsv",
             "../data/pricing-cache.tsv")));
+    private static final UserStore USER_STORE = new UserStore(Paths.get(findExistingPath(
+            "data/users.tsv",
+            "users.tsv",
+            "../data/users.tsv")));
+    private static final CartStore CART_STORE = new CartStore(Paths.get(findExistingPath(
+            "data/carts.tsv",
+            "carts.tsv",
+            "../data/carts.tsv")));
 
     public static void main(String[] args) throws IOException {
         if (args.length != 1) {
@@ -74,6 +82,14 @@ public class WebApp {
                 handleShortestPath(exchange);
             } else if (path.equals("/api/closest")) {
                 handleClosest(exchange);
+            } else if (path.equals("/api/register")) {
+                handleRegister(exchange);
+            } else if (path.equals("/api/login")) {
+                handleLogin(exchange);
+            } else if (path.equals("/api/cart")) {
+                handleCart(exchange);
+            } else if (path.equals("/api/cart/checkout")) {
+                handleCheckout(exchange);
             } else {
                 serveReactApp(exchange, path);
             }
@@ -85,6 +101,90 @@ public class WebApp {
                 // The client may already be gone.
             }
         }
+    }
+
+    private static void handleRegister(HttpExchange exchange) throws IOException {
+        if (!requireMethod(exchange, "POST")) {
+            return;
+        }
+
+        Map<String, String> body = parseJsonObject(readBody(exchange));
+        try {
+            UserStore.AuthResult result = USER_STORE.register(
+                    body.get("name"),
+                    body.get("email"),
+                    body.get("password"));
+            sendJson(exchange, 200, authResultToJson(result));
+        } catch (IllegalArgumentException e) {
+            sendJson(exchange, 400, "{\"error\":" + quote(e.getMessage()) + "}");
+        }
+    }
+
+    private static void handleLogin(HttpExchange exchange) throws IOException {
+        if (!requireMethod(exchange, "POST")) {
+            return;
+        }
+
+        Map<String, String> body = parseJsonObject(readBody(exchange));
+        try {
+            UserStore.AuthResult result = USER_STORE.login(body.get("email"), body.get("password"));
+            sendJson(exchange, 200, authResultToJson(result));
+        } catch (IllegalArgumentException e) {
+            sendJson(exchange, 401, "{\"error\":" + quote(e.getMessage()) + "}");
+        }
+    }
+
+    private static void handleCart(HttpExchange exchange) throws IOException {
+        UserStore.User user = authenticatedUser(exchange);
+        if (user == null) {
+            sendJson(exchange, 401, "{\"error\":\"Please log in first.\"}");
+            return;
+        }
+
+        String method = exchange.getRequestMethod();
+        if ("GET".equalsIgnoreCase(method)) {
+            sendJson(exchange, 200, cartItemsToJson(CART_STORE.getItems(user.getEmail())));
+        } else if ("POST".equalsIgnoreCase(method)) {
+            Map<String, String> body = parseJsonObject(readBody(exchange));
+            try {
+                CartStore.CartItem item = new CartStore.CartItem(
+                        clean(body.get("start")),
+                        clean(body.get("end")),
+                        clean(body.get("travelDate")),
+                        parseDouble(body.get("totalMinutes")),
+                        parseDouble(body.get("totalPriceEuros")),
+                        clean(body.get("pathSummary")));
+                CartStore.CartItem saved = CART_STORE.addItem(user.getEmail(), item);
+                sendJson(exchange, 200, "{\"item\":" + cartItemToJson(saved) + "}");
+            } catch (IllegalArgumentException e) {
+                sendJson(exchange, 400, "{\"error\":\"Could not add this trip to the cart.\"}");
+            }
+        } else if ("DELETE".equalsIgnoreCase(method)) {
+            Map<String, String> query = parseQuery(exchange.getRequestURI().getRawQuery());
+            boolean removed = CART_STORE.removeItem(user.getEmail(), clean(query.get("id")));
+            sendJson(exchange, removed ? 200 : 404, "{\"removed\":" + removed + "}");
+        } else {
+            sendJson(exchange, 405, "{\"error\":\"Unsupported cart method.\"}");
+        }
+    }
+
+    private static void handleCheckout(HttpExchange exchange) throws IOException {
+        if (!requireMethod(exchange, "POST")) {
+            return;
+        }
+
+        UserStore.User user = authenticatedUser(exchange);
+        if (user == null) {
+            sendJson(exchange, 401, "{\"error\":\"Please log in first.\"}");
+            return;
+        }
+
+        CartStore.CheckoutResult result = CART_STORE.checkout(user.getEmail());
+        String json = "{"
+                + "\"purchased\":" + result.getItemCount() + ","
+                + "\"totalPriceEuros\":" + formatNumber(result.getTotalPriceEuros())
+                + "}";
+        sendJson(exchange, 200, json);
     }
 
     private static BackendInterface createBackend() {
@@ -230,6 +330,77 @@ public class WebApp {
         return map;
     }
 
+    private static Map<String, String> parseJsonObject(String json) {
+        Map<String, String> map = new HashMap<>();
+        if (json == null) {
+            return map;
+        }
+
+        int index = 0;
+        while (index < json.length()) {
+            int keyStart = json.indexOf('"', index);
+            if (keyStart < 0) {
+                break;
+            }
+            int keyEnd = findStringEnd(json, keyStart + 1);
+            if (keyEnd < 0) {
+                break;
+            }
+            String key = unescapeJson(json.substring(keyStart + 1, keyEnd));
+            int colon = json.indexOf(':', keyEnd);
+            if (colon < 0) {
+                break;
+            }
+            int valueStart = colon + 1;
+            while (valueStart < json.length() && Character.isWhitespace(json.charAt(valueStart))) {
+                valueStart++;
+            }
+
+            String value;
+            if (valueStart < json.length() && json.charAt(valueStart) == '"') {
+                int valueEnd = findStringEnd(json, valueStart + 1);
+                if (valueEnd < 0) {
+                    break;
+                }
+                value = unescapeJson(json.substring(valueStart + 1, valueEnd));
+                index = valueEnd + 1;
+            } else {
+                int valueEnd = valueStart;
+                while (valueEnd < json.length()
+                        && ",}".indexOf(json.charAt(valueEnd)) < 0) {
+                    valueEnd++;
+                }
+                value = json.substring(valueStart, valueEnd).trim();
+                index = valueEnd;
+            }
+            map.put(key, value);
+        }
+        return map;
+    }
+
+    private static int findStringEnd(String json, int start) {
+        boolean escaped = false;
+        for (int i = start; i < json.length(); i++) {
+            char c = json.charAt(i);
+            if (escaped) {
+                escaped = false;
+            } else if (c == '\\') {
+                escaped = true;
+            } else if (c == '"') {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private static String unescapeJson(String value) {
+        return value.replace("\\\"", "\"")
+                .replace("\\\\", "\\")
+                .replace("\\n", "\n")
+                .replace("\\r", "\r")
+                .replace("\\t", "\t");
+    }
+
     private static List<String> splitLocations(String from) {
         List<String> starts = new ArrayList<>();
         for (String part : from.split(",")) {
@@ -255,6 +426,13 @@ public class WebApp {
 
     private static double roundCurrency(double value) {
         return Math.round(value * 100.0) / 100.0;
+    }
+
+    private static double parseDouble(String value) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("Missing number");
+        }
+        return Double.parseDouble(value);
     }
 
     private static LocalDate parseTravelDate(String dateValue) {
@@ -330,6 +508,39 @@ public class WebApp {
         return json.append("]").toString();
     }
 
+    private static String authResultToJson(UserStore.AuthResult result) {
+        return "{"
+                + "\"token\":" + quote(result.getToken()) + ","
+                + "\"user\":{"
+                + "\"name\":" + quote(result.getUser().getName()) + ","
+                + "\"email\":" + quote(result.getUser().getEmail())
+                + "}}";
+    }
+
+    private static String cartItemsToJson(List<CartStore.CartItem> items) {
+        StringBuilder json = new StringBuilder("{\"items\":[");
+        for (int i = 0; i < items.size(); i++) {
+            if (i > 0) {
+                json.append(",");
+            }
+            json.append(cartItemToJson(items.get(i)));
+        }
+        return json.append("]}").toString();
+    }
+
+    private static String cartItemToJson(CartStore.CartItem item) {
+        return "{"
+                + "\"id\":" + quote(item.getId()) + ","
+                + "\"start\":" + quote(item.getStart()) + ","
+                + "\"end\":" + quote(item.getEnd()) + ","
+                + "\"travelDate\":" + quote(item.getTravelDate()) + ","
+                + "\"totalMinutes\":" + formatNumber(item.getTotalMinutes()) + ","
+                + "\"totalPriceEuros\":" + formatNumber(item.getTotalPriceEuros()) + ","
+                + "\"pathSummary\":" + quote(item.getPathSummary()) + ","
+                + "\"createdAt\":" + quote(item.getCreatedAt())
+                + "}";
+    }
+
     private static String quote(String value) {
         StringBuilder escaped = new StringBuilder("\"");
         for (int i = 0; i < value.length(); i++) {
@@ -355,8 +566,32 @@ public class WebApp {
 
     private static void addCommonHeaders(HttpExchange exchange) {
         exchange.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
-        exchange.getResponseHeaders().set("Access-Control-Allow-Methods", "GET, OPTIONS");
-        exchange.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type");
+        exchange.getResponseHeaders().set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+        exchange.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    }
+
+    private static boolean requireMethod(HttpExchange exchange, String method) throws IOException {
+        if (method.equalsIgnoreCase(exchange.getRequestMethod())) {
+            return true;
+        }
+        sendJson(exchange, 405, "{\"error\":\"Method not allowed.\"}");
+        return false;
+    }
+
+    private static String readBody(HttpExchange exchange) throws IOException {
+        return new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+    }
+
+    private static UserStore.User authenticatedUser(HttpExchange exchange) {
+        String auth = exchange.getRequestHeaders().getFirst("Authorization");
+        if (auth == null || !auth.startsWith("Bearer ")) {
+            return null;
+        }
+        try {
+            return USER_STORE.requireUser(auth.substring("Bearer ".length()));
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 
     private static void sendJson(HttpExchange exchange, int status, String json) throws IOException {

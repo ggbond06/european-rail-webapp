@@ -1,6 +1,8 @@
 node_modules/
 *.class
 backend/build/
+data/carts.tsv
 data/pricing-cache.tsv
+data/users.tsv
 frontend/node_modules/
 frontend/dist/

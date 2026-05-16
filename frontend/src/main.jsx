@@ -166,6 +166,14 @@ function App() {
   const [closestResult, setClosestResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [authMode, setAuthMode] = useState('login');
+  const [authForm, setAuthForm] = useState({ name: '', email: '', password: '' });
+  const [session, setSession] = useState(() => {
+    const saved = localStorage.getItem('railSession');
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [cartItems, setCartItems] = useState([]);
+  const [cartMessage, setCartMessage] = useState('');
 
   useEffect(() => {
     fetch('/api/locations')
@@ -177,6 +185,12 @@ function App() {
         setError('Could not load rail cities from the Java backend.');
       });
   }, []);
+
+  useEffect(() => {
+    if (session?.token) {
+      loadCart(session.token);
+    }
+  }, [session?.token]);
 
   const routeSegments = useMemo(() => {
     if (!pathResult?.path?.length) return [];
@@ -193,6 +207,34 @@ function App() {
     const payload = await response.json();
     if (!response.ok) throw new Error(payload.error || 'Request failed.');
     return payload;
+  }
+
+  async function sendJson(url, body, token = session?.token, method = 'POST') {
+    const response = await fetch(url, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || 'Request failed.');
+    return payload;
+  }
+
+  async function loadCart(token = session?.token) {
+    if (!token) return;
+    try {
+      const response = await fetch('/api/cart', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || 'Could not load cart.');
+      setCartItems(payload.items ?? []);
+    } catch (err) {
+      setCartMessage(err.message);
+    }
   }
 
   async function findShortestPath(nextStart = start, nextEnd = end, nextDate = travelDate) {
@@ -224,6 +266,82 @@ function App() {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function submitAuth(event) {
+    event.preventDefault();
+    setCartMessage('');
+    try {
+      const endpoint = authMode === 'login' ? '/api/login' : '/api/register';
+      const result = await sendJson(endpoint, authForm, null);
+      setSession(result);
+      localStorage.setItem('railSession', JSON.stringify(result));
+      setAuthForm({ name: '', email: '', password: '' });
+      setCartMessage(`Signed in as ${result.user.name}.`);
+    } catch (err) {
+      setCartMessage(err.message);
+    }
+  }
+
+  function signOut() {
+    setSession(null);
+    setCartItems([]);
+    localStorage.removeItem('railSession');
+    setCartMessage('Signed out.');
+  }
+
+  async function addCurrentTripToCart() {
+    if (!session?.token) {
+      setCartMessage('Log in or register before adding a trip to your cart.');
+      return;
+    }
+    if (!pathResult) {
+      setCartMessage('Find a route before adding it to your cart.');
+      return;
+    }
+
+    try {
+      const payload = {
+        start: pathResult.start,
+        end: pathResult.end,
+        travelDate: pathResult.travelDate,
+        totalMinutes: pathResult.totalMinutes,
+        totalPriceEuros: pathResult.totalPriceEuros,
+        pathSummary: pathResult.path.join(' > '),
+      };
+      await sendJson('/api/cart', payload);
+      await loadCart();
+      setCartMessage('Trip added to cart.');
+    } catch (err) {
+      setCartMessage(err.message);
+    }
+  }
+
+  async function removeCartItem(id) {
+    if (!session?.token) return;
+    try {
+      const response = await fetch(`/api/cart?id=${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${session.token}` },
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || 'Could not remove trip.');
+      await loadCart();
+      setCartMessage('Trip removed.');
+    } catch (err) {
+      setCartMessage(err.message);
+    }
+  }
+
+  async function checkoutCart() {
+    if (!session?.token) return;
+    try {
+      const result = await sendJson('/api/cart/checkout', {});
+      await loadCart();
+      setCartMessage(`Purchase complete: ${result.purchased} ticket(s), ${formatPrice(result.totalPriceEuros)}.`);
+    } catch (err) {
+      setCartMessage(err.message);
     }
   }
 
@@ -321,6 +439,57 @@ function App() {
             </button>
           </div>
         </div>
+
+        <div className="tool-panel account-panel">
+          <div className="panel-heading">
+            <span>Account</span>
+            <small>{session ? session.user.email : 'Login required for cart'}</small>
+          </div>
+          {session ? (
+            <div className="account-summary">
+              <p>Signed in as <strong>{session.user.name}</strong>.</p>
+              <button type="button" className="secondary-button" onClick={signOut}>Sign Out</button>
+            </div>
+          ) : (
+            <form className="auth-form" onSubmit={submitAuth}>
+              <div className="auth-tabs" role="tablist" aria-label="Account mode">
+                <button type="button" className={authMode === 'login' ? 'active' : ''} onClick={() => setAuthMode('login')}>
+                  Login
+                </button>
+                <button type="button" className={authMode === 'register' ? 'active' : ''} onClick={() => setAuthMode('register')}>
+                  Register
+                </button>
+              </div>
+              {authMode === 'register' && (
+                <label>
+                  Name
+                  <input
+                    value={authForm.name}
+                    onChange={(event) => setAuthForm({ ...authForm, name: event.target.value })}
+                  />
+                </label>
+              )}
+              <label>
+                Email
+                <input
+                  type="email"
+                  value={authForm.email}
+                  onChange={(event) => setAuthForm({ ...authForm, email: event.target.value })}
+                />
+              </label>
+              <label>
+                Password
+                <input
+                  type="password"
+                  value={authForm.password}
+                  onChange={(event) => setAuthForm({ ...authForm, password: event.target.value })}
+                />
+              </label>
+              <button type="submit">{authMode === 'login' ? 'Login' : 'Create Account'}</button>
+            </form>
+          )}
+          {cartMessage && <p className="cart-message">{cartMessage}</p>}
+        </div>
       </section>
 
       {error && <p className="notice" role="alert">{error}</p>}
@@ -341,6 +510,9 @@ function App() {
                 Cached fare estimate for {pathResult.travelDate}. Live checkout fares vary by operator,
                 availability, train, and ticket type.
               </p>
+              <button type="button" className="cart-add-button" onClick={addCurrentTripToCart}>
+                Add This Trip to Cart
+              </button>
               <ol className="path-list">
                 {pathResult.path.map((city, index) => (
                   <li key={`${city}-${index}`}>
@@ -369,6 +541,45 @@ function App() {
           )}
         </div>
 
+        <div className="result-panel">
+          <div className="result-title">
+            <span>Shopping Cart</span>
+            <strong>{formatPrice(cartItems.reduce((total, item) => total + item.totalPriceEuros, 0))}</strong>
+          </div>
+          {session ? (
+            <div className="cart-list">
+              {cartItems.length === 0 ? (
+                <p className="empty-state">Your cart is empty.</p>
+              ) : (
+                cartItems.map((item) => (
+                  <div className="cart-item" key={item.id}>
+                    <div>
+                      <strong>{item.start} to {item.end}</strong>
+                      <span>{item.travelDate} · {formatDuration(item.totalMinutes)}</span>
+                      <small>{item.pathSummary}</small>
+                    </div>
+                    <div className="cart-item-actions">
+                      <strong>{formatPrice(item.totalPriceEuros)}</strong>
+                      <button type="button" className="secondary-button" onClick={() => removeCartItem(item.id)}>
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+              {cartItems.length > 0 && (
+                <button type="button" className="checkout-button" onClick={checkoutCart}>
+                  Purchase Tickets
+                </button>
+              )}
+            </div>
+          ) : (
+            <p className="empty-state">Log in or register to save trips and purchase tickets.</p>
+          )}
+        </div>
+      </section>
+
+      <section className="results-layout secondary-results" aria-label="Meeting point">
         <div className="result-panel">
           <div className="result-title">
             <span>Meeting Point</span>

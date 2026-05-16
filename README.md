@@ -17,6 +17,10 @@ Date-adjusted segment prices are cached locally in `data/pricing-cache.tsv`.
 Cached prices are reused for six hours, then refreshed by the current pricing
 provider. The cache file is generated at runtime and ignored by git.
 
+The app includes local demo accounts and shopping carts. Registered users are
+stored in `data/users.tsv` with hashed passwords, and carts are stored in
+`data/carts.tsv`. These runtime data files are ignored by git.
+
 ## Project Layout
 
 ```text
