@@ -174,6 +174,7 @@ function App() {
     return saved ? JSON.parse(saved) : null;
   });
   const [cartItems, setCartItems] = useState([]);
+  const [cartOpen, setCartOpen] = useState(false);
   const [cartMessage, setCartMessage] = useState('');
 
   useEffect(() => {
@@ -189,6 +190,10 @@ function App() {
       setAuthMode('register');
     } else if (currentPath === '/login') {
       setAuthMode('login');
+    } else if (currentPath === '/cart') {
+      setCartOpen(true);
+      window.history.replaceState({}, '', '/');
+      setCurrentPath('/');
     }
   }, [currentPath]);
 
@@ -336,6 +341,7 @@ function App() {
       await sendJson('/api/cart', payload);
       await loadCart();
       setCartMessage('Trip added to cart.');
+      setCartOpen(true);
     } catch (err) {
       setCartMessage(err.message);
     }
@@ -396,23 +402,14 @@ function App() {
     );
   }
 
-  if (currentPath === '/cart') {
-    return (
-      <CartPage
-        session={session}
-        cartItems={cartItems}
-        cartMessage={cartMessage}
-        signOut={signOut}
-        navigateTo={navigateTo}
-        removeCartItem={removeCartItem}
-        checkoutCart={checkoutCart}
-      />
-    );
-  }
-
   return (
     <main className="app-shell">
-      <TopNav session={session} signOut={signOut} navigateTo={navigateTo} />
+      <TopNav
+        session={session}
+        signOut={signOut}
+        navigateTo={navigateTo}
+        openCart={() => setCartOpen(true)}
+      />
       <section className="hero-band">
         <div className="hero-copy">
           <p className="eyebrow">Dijkstra powered rail planner</p>
@@ -542,10 +539,8 @@ function App() {
             <p className="empty-state">Choose a start and destination to calculate a route.</p>
           )}
         </div>
-      </section>
 
-      <section className="results-layout secondary-results" aria-label="Meeting point">
-        <div className="result-panel">
+        <div className="result-panel meeting-panel">
           <div className="result-title">
             <span>Meeting Point</span>
             <strong>{closestResult ? closestResult.closest : 'Ready'}</strong>
@@ -568,11 +563,21 @@ function App() {
           <option value={city} key={city} />
         ))}
       </datalist>
+      <CartDrawer
+        open={cartOpen}
+        session={session}
+        cartItems={cartItems}
+        cartMessage={cartMessage}
+        closeCart={() => setCartOpen(false)}
+        navigateTo={navigateTo}
+        removeCartItem={removeCartItem}
+        checkoutCart={checkoutCart}
+      />
     </main>
   );
 }
 
-function TopNav({ session, signOut, navigateTo }) {
+function TopNav({ session, signOut, navigateTo, openCart }) {
   function follow(event, path) {
     event.preventDefault();
     navigateTo(path);
@@ -584,13 +589,13 @@ function TopNav({ session, signOut, navigateTo }) {
         European Rail Navigator
       </a>
       <div className="top-nav-actions">
-        <a className="cart-link" href="/cart" aria-label="Shopping cart" onClick={(event) => follow(event, '/cart')}>
+        <button type="button" className="cart-link" aria-label="Open shopping cart" onClick={openCart}>
           <svg className="cart-icon" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M6.3 6h15l-1.7 8.2a2 2 0 0 1-2 1.6H9.1a2 2 0 0 1-2-1.7L5.6 3.8H2.8" />
             <circle cx="9.8" cy="20" r="1.4" />
             <circle cx="17.5" cy="20" r="1.4" />
           </svg>
-        </a>
+        </button>
         {session ? (
           <>
             <span>{session.user.name}</span>
@@ -607,59 +612,77 @@ function TopNav({ session, signOut, navigateTo }) {
   );
 }
 
-function CartPage({ session, cartItems, cartMessage, signOut, navigateTo, removeCartItem, checkoutCart }) {
+function CartDrawer({ open, session, cartItems, cartMessage, closeCart, navigateTo, removeCartItem, checkoutCart }) {
   const total = cartItems.reduce((sum, item) => sum + item.totalPriceEuros, 0);
 
   return (
-    <main className="app-shell">
-      <TopNav session={session} signOut={signOut} navigateTo={navigateTo} />
-      <section className="cart-page" aria-label="Shopping cart">
-        <div className="cart-page-heading">
+    <aside className={`cart-drawer ${open ? 'open' : ''}`} aria-label="Shopping cart" aria-hidden={!open}>
+      <div className="cart-drawer-header">
+        <div>
           <p className="eyebrow">Ticket checkout</p>
-          <h1>Shopping Cart</h1>
-          <strong>{formatPrice(total)}</strong>
+          <h2>Shopping Cart</h2>
         </div>
-        {cartMessage && <p className="notice status-notice">{cartMessage}</p>}
-        <div className="result-panel cart-page-panel">
-          {session ? (
-            <div className="cart-list">
-              {cartItems.length === 0 ? (
-                <p className="empty-state">Your cart is empty.</p>
-              ) : (
-                cartItems.map((item) => (
-                  <div className="cart-item" key={item.id}>
-                    <div>
-                      <strong>{item.start} to {item.end}</strong>
-                      <span>{item.travelDate} · {formatDuration(item.totalMinutes)}</span>
-                      <small>{item.pathSummary}</small>
-                    </div>
-                    <div className="cart-item-actions">
-                      <strong>{formatPrice(item.totalPriceEuros)}</strong>
-                      <button type="button" className="secondary-button" onClick={() => removeCartItem(item.id)}>
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-              {cartItems.length > 0 && (
-                <button type="button" className="checkout-button" onClick={checkoutCart}>
-                  Purchase Tickets
-                </button>
-              )}
-            </div>
+        <button type="button" className="drawer-close" aria-label="Close shopping cart" onClick={closeCart}>
+          x
+        </button>
+      </div>
+      <strong className="cart-total">{formatPrice(total)}</strong>
+      {cartMessage && <p className="cart-message">{cartMessage}</p>}
+      {session ? (
+        <div className="cart-list">
+          {cartItems.length === 0 ? (
+            <p className="empty-state">Your cart is empty.</p>
           ) : (
-            <div className="cart-login-prompt">
-              <p className="empty-state">Log in or register to save trips and purchase tickets.</p>
-              <div>
-                <a href="/login" onClick={(event) => { event.preventDefault(); navigateTo('/login'); }}>Login</a>
-                <a href="/register" onClick={(event) => { event.preventDefault(); navigateTo('/register'); }}>Register</a>
+            cartItems.map((item) => (
+              <div className="cart-item" key={item.id}>
+                <div>
+                  <strong>{item.start} to {item.end}</strong>
+                  <span>{item.travelDate} · {formatDuration(item.totalMinutes)}</span>
+                  <small>{item.pathSummary}</small>
+                </div>
+                <div className="cart-item-actions">
+                  <strong>{formatPrice(item.totalPriceEuros)}</strong>
+                  <button type="button" className="secondary-button" onClick={() => removeCartItem(item.id)}>
+                    Remove
+                  </button>
+                </div>
               </div>
-            </div>
+            ))
+          )}
+          {cartItems.length > 0 && (
+            <button type="button" className="checkout-button" onClick={checkoutCart}>
+              Purchase Tickets
+            </button>
           )}
         </div>
-      </section>
-    </main>
+      ) : (
+        <div className="cart-login-prompt">
+          <p className="empty-state">Log in or register to save trips and purchase tickets.</p>
+          <div>
+            <a
+              href="/login"
+              onClick={(event) => {
+                event.preventDefault();
+                closeCart();
+                navigateTo('/login');
+              }}
+            >
+              Login
+            </a>
+            <a
+              href="/register"
+              onClick={(event) => {
+                event.preventDefault();
+                closeCart();
+                navigateTo('/register');
+              }}
+            >
+              Register
+            </a>
+          </div>
+        </div>
+      )}
+    </aside>
   );
 }
 
