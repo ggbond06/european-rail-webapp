@@ -89,6 +89,36 @@ code {
   gap: 14px;
 }
 
+.cart-link {
+  align-items: center;
+  border: 1px solid #d8d2c6;
+  border-radius: 999px;
+  display: inline-flex;
+  height: 38px;
+  justify-content: center;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    transform 140ms ease;
+  width: 38px;
+}
+
+.cart-link:hover {
+  background: #e6ded0;
+  border-color: #b9ada0;
+  transform: translateY(-1px);
+}
+
+.cart-icon {
+  fill: none;
+  height: 22px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+  width: 22px;
+}
+
 .top-nav-actions span {
   color: #4b5854;
   font-weight: 800;
@@ -349,6 +379,16 @@ h1 {
   padding: 13px 16px;
 }
 
+.status-notice {
+  background: #edf4ef;
+  border-color: #b9d0c6;
+  color: #315047;
+}
+
+.route-results {
+  grid-template-columns: 1fr;
+}
+
 .path-list {
   counter-reset: route;
   display: grid;
@@ -498,6 +538,65 @@ h1 {
   justify-self: end;
 }
 
+.cart-page {
+  display: grid;
+  gap: 18px;
+  padding: 42px clamp(18px, 5vw, 72px);
+}
+
+.cart-page-heading {
+  align-items: end;
+  display: grid;
+  gap: 10px 20px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.cart-page-heading .eyebrow {
+  grid-column: 1 / -1;
+  margin-bottom: 0;
+}
+
+.cart-page-heading h1 {
+  font-size: clamp(2.2rem, 5vw, 4.2rem);
+}
+
+.cart-page-heading strong {
+  color: #b0472b;
+  font-size: clamp(1.25rem, 3vw, 2rem);
+  white-space: nowrap;
+}
+
+.cart-page .notice {
+  margin: 0;
+}
+
+.cart-page-panel {
+  max-width: 980px;
+}
+
+.cart-login-prompt {
+  display: grid;
+  gap: 16px;
+}
+
+.cart-login-prompt div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.cart-login-prompt a {
+  align-items: center;
+  background: #1b6f6a;
+  border-radius: 6px;
+  color: #ffffff;
+  display: inline-flex;
+  font-weight: 800;
+  min-height: 42px;
+  padding: 0 16px;
+  text-decoration: none;
+}
+
 .secondary-results {
   grid-template-columns: 1fr;
   padding-bottom: 28px;
@@ -521,6 +620,11 @@ h1 {
 
   .cart-item-actions {
     justify-items: start;
+  }
+
+  .cart-page-heading {
+    align-items: start;
+    grid-template-columns: 1fr;
   }
 }
 

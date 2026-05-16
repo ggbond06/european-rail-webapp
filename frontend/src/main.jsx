@@ -396,26 +396,23 @@ function App() {
     );
   }
 
+  if (currentPath === '/cart') {
+    return (
+      <CartPage
+        session={session}
+        cartItems={cartItems}
+        cartMessage={cartMessage}
+        signOut={signOut}
+        navigateTo={navigateTo}
+        removeCartItem={removeCartItem}
+        checkoutCart={checkoutCart}
+      />
+    );
+  }
+
   return (
     <main className="app-shell">
-      <nav className="top-nav" aria-label="Account navigation">
-        <a href="/" onClick={(event) => { event.preventDefault(); navigateTo('/'); }}>
-          European Rail Navigator
-        </a>
-        <div className="top-nav-actions">
-          {session ? (
-            <>
-              <span>{session.user.name}</span>
-              <button type="button" className="secondary-button" onClick={signOut}>Sign Out</button>
-            </>
-          ) : (
-            <>
-              <a href="/login" onClick={(event) => { event.preventDefault(); navigateTo('/login'); }}>Login</a>
-              <a href="/register" onClick={(event) => { event.preventDefault(); navigateTo('/register'); }}>Register</a>
-            </>
-          )}
-        </div>
-      </nav>
+      <TopNav session={session} signOut={signOut} navigateTo={navigateTo} />
       <section className="hero-band">
         <div className="hero-copy">
           <p className="eyebrow">Dijkstra powered rail planner</p>
@@ -497,8 +494,9 @@ function App() {
       </section>
 
       {error && <p className="notice" role="alert">{error}</p>}
+      {cartMessage && <p className="notice status-notice">{cartMessage}</p>}
 
-      <section className="results-layout" aria-label="Results">
+      <section className="results-layout route-results" aria-label="Results">
         <div className="result-panel">
           <div className="result-title">
             <span>Route</span>
@@ -544,12 +542,85 @@ function App() {
             <p className="empty-state">Choose a start and destination to calculate a route.</p>
           )}
         </div>
+      </section>
 
+      <section className="results-layout secondary-results" aria-label="Meeting point">
         <div className="result-panel">
           <div className="result-title">
-            <span>Shopping Cart</span>
-            <strong>{formatPrice(cartItems.reduce((total, item) => total + item.totalPriceEuros, 0))}</strong>
+            <span>Meeting Point</span>
+            <strong>{closestResult ? closestResult.closest : 'Ready'}</strong>
           </div>
+          {closestResult ? (
+            <div className="meeting-result">
+              <p>
+                {closestResult.closest} minimizes total travel time from {closestResult.starts.join(', ')}.
+              </p>
+              <strong>{formatDuration(closestResult.totalMinutes)} combined</strong>
+            </div>
+          ) : (
+            <p className="empty-state">Enter several cities to find the closest shared destination.</p>
+          )}
+        </div>
+      </section>
+
+      <datalist id="cities">
+        {locations.map((city) => (
+          <option value={city} key={city} />
+        ))}
+      </datalist>
+    </main>
+  );
+}
+
+function TopNav({ session, signOut, navigateTo }) {
+  function follow(event, path) {
+    event.preventDefault();
+    navigateTo(path);
+  }
+
+  return (
+    <nav className="top-nav" aria-label="Account navigation">
+      <a href="/" onClick={(event) => follow(event, '/')}>
+        European Rail Navigator
+      </a>
+      <div className="top-nav-actions">
+        <a className="cart-link" href="/cart" aria-label="Shopping cart" onClick={(event) => follow(event, '/cart')}>
+          <svg className="cart-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M6.3 6h15l-1.7 8.2a2 2 0 0 1-2 1.6H9.1a2 2 0 0 1-2-1.7L5.6 3.8H2.8" />
+            <circle cx="9.8" cy="20" r="1.4" />
+            <circle cx="17.5" cy="20" r="1.4" />
+          </svg>
+        </a>
+        {session ? (
+          <>
+            <span>{session.user.name}</span>
+            <button type="button" className="secondary-button" onClick={signOut}>Sign Out</button>
+          </>
+        ) : (
+          <>
+            <a href="/login" onClick={(event) => follow(event, '/login')}>Login</a>
+            <a href="/register" onClick={(event) => follow(event, '/register')}>Register</a>
+          </>
+        )}
+      </div>
+    </nav>
+  );
+}
+
+function CartPage({ session, cartItems, cartMessage, signOut, navigateTo, removeCartItem, checkoutCart }) {
+  const total = cartItems.reduce((sum, item) => sum + item.totalPriceEuros, 0);
+
+  return (
+    <main className="app-shell">
+      <TopNav session={session} signOut={signOut} navigateTo={navigateTo} />
+      <section className="cart-page" aria-label="Shopping cart">
+        <div className="cart-page-heading">
+          <p className="eyebrow">Ticket checkout</p>
+          <h1>Shopping Cart</h1>
+          <strong>{formatPrice(total)}</strong>
+        </div>
+        {cartMessage && <p className="notice status-notice">{cartMessage}</p>}
+        <div className="result-panel cart-page-panel">
           {session ? (
             <div className="cart-list">
               {cartItems.length === 0 ? (
@@ -578,35 +649,16 @@ function App() {
               )}
             </div>
           ) : (
-            <p className="empty-state">Log in or register to save trips and purchase tickets.</p>
-          )}
-        </div>
-      </section>
-
-      <section className="results-layout secondary-results" aria-label="Meeting point">
-        <div className="result-panel">
-          <div className="result-title">
-            <span>Meeting Point</span>
-            <strong>{closestResult ? closestResult.closest : 'Ready'}</strong>
-          </div>
-          {closestResult ? (
-            <div className="meeting-result">
-              <p>
-                {closestResult.closest} minimizes total travel time from {closestResult.starts.join(', ')}.
-              </p>
-              <strong>{formatDuration(closestResult.totalMinutes)} combined</strong>
+            <div className="cart-login-prompt">
+              <p className="empty-state">Log in or register to save trips and purchase tickets.</p>
+              <div>
+                <a href="/login" onClick={(event) => { event.preventDefault(); navigateTo('/login'); }}>Login</a>
+                <a href="/register" onClick={(event) => { event.preventDefault(); navigateTo('/register'); }}>Register</a>
+              </div>
             </div>
-          ) : (
-            <p className="empty-state">Enter several cities to find the closest shared destination.</p>
           )}
         </div>
       </section>
-
-      <datalist id="cities">
-        {locations.map((city) => (
-          <option value={city} key={city} />
-        ))}
-      </datalist>
     </main>
   );
 }
