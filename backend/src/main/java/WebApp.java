@@ -6,6 +6,10 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -100,15 +104,26 @@ public class WebApp {
         Map<String, String> query = parseQuery(exchange.getRequestURI().getRawQuery());
         String start = clean(query.get("start"));
         String end = clean(query.get("end"));
+        String dateValue = clean(query.get("date"));
 
         if (start.isEmpty() || end.isEmpty()) {
             sendJson(exchange, 400, "{\"error\":\"Choose both a start and destination city.\"}");
             return;
         }
 
+        LocalDate travelDate;
+        try {
+            travelDate = parseTravelDate(dateValue);
+        } catch (IllegalArgumentException e) {
+            sendJson(exchange, 400, "{\"error\":\"Choose a valid travel date that is not in the past.\"}");
+            return;
+        }
+
         List<String> path = BACKEND.findLocationsOnShortestPath(start, end);
         List<Double> times = BACKEND.findTimesOnShortestPath(start, end);
-        List<Double> prices = BACKEND.findPricesOnShortestPath(start, end);
+        List<Double> basePrices = BACKEND.findPricesOnShortestPath(start, end);
+        double priceMultiplier = datePriceMultiplier(travelDate);
+        List<Double> prices = adjustPricesForDate(basePrices, priceMultiplier);
         if (path.isEmpty()) {
             sendJson(exchange, 404, "{\"error\":\"No rail path was found between those cities.\"}");
             return;
@@ -122,6 +137,9 @@ public class WebApp {
                 + "\"path\":" + stringListToJson(path) + ","
                 + "\"times\":" + numberListToJson(times) + ","
                 + "\"prices\":" + numberListToJson(prices) + ","
+                + "\"travelDate\":" + quote(travelDate.toString()) + ","
+                + "\"pricingMode\":\"date_adjusted_estimate\","
+                + "\"priceMultiplier\":" + formatNumber(priceMultiplier) + ","
                 + "\"totalMinutes\":" + formatNumber(total) + ","
                 + "\"totalPriceEuros\":" + formatNumber(totalPrice)
                 + "}";
@@ -230,6 +248,65 @@ public class WebApp {
 
     private static double roundCurrency(double value) {
         return Math.round(value * 100.0) / 100.0;
+    }
+
+    private static LocalDate parseTravelDate(String dateValue) {
+        LocalDate date;
+        if (dateValue.isEmpty()) {
+            date = LocalDate.now();
+        } else {
+            try {
+                date = LocalDate.parse(dateValue);
+            } catch (DateTimeParseException e) {
+                throw new IllegalArgumentException("Invalid travel date");
+            }
+        }
+
+        if (date.isBefore(LocalDate.now())) {
+            throw new IllegalArgumentException("Travel date is in the past");
+        }
+        return date;
+    }
+
+    private static List<Double> adjustPricesForDate(List<Double> basePrices, double multiplier) {
+        List<Double> adjusted = new ArrayList<>();
+        for (Double basePrice : basePrices) {
+            adjusted.add(roundCurrency(basePrice * multiplier));
+        }
+        return adjusted;
+    }
+
+    private static double datePriceMultiplier(LocalDate travelDate) {
+        long daysAway = ChronoUnit.DAYS.between(LocalDate.now(), travelDate);
+        double multiplier;
+        if (daysAway == 0) {
+            multiplier = 1.60;
+        } else if (daysAway <= 3) {
+            multiplier = 1.45;
+        } else if (daysAway <= 13) {
+            multiplier = 1.25;
+        } else if (daysAway <= 29) {
+            multiplier = 1.10;
+        } else if (daysAway <= 59) {
+            multiplier = 1.00;
+        } else {
+            multiplier = 0.92;
+        }
+
+        DayOfWeek day = travelDate.getDayOfWeek();
+        if (day == DayOfWeek.FRIDAY || day == DayOfWeek.SATURDAY || day == DayOfWeek.SUNDAY) {
+            multiplier += 0.08;
+        }
+
+        int month = travelDate.getMonthValue();
+        int dayOfMonth = travelDate.getDayOfMonth();
+        if (month == 7 || month == 8) {
+            multiplier += 0.06;
+        } else if (month == 12 && dayOfMonth >= 15) {
+            multiplier += 0.12;
+        }
+
+        return roundCurrency(multiplier);
     }
 
     private static String stringListToJson(List<String> values) {

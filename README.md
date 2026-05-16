@@ -9,6 +9,10 @@ as estimated standard adult second-class segment fares in euros, because live
 European rail fares vary by operator, booking date, train, class, availability,
 and fare type.
 
+The route planner also accepts a travel date. Prices are adjusted by travel date
+to model advance-purchase, weekend, and seasonal fare changes. They should be
+treated as planning estimates, not guaranteed live checkout prices.
+
 ## Project Layout
 
 ```text

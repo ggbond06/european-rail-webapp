@@ -149,10 +149,18 @@ function formatPrice(price) {
   }).format(price);
 }
 
+function todayString() {
+  const today = new Date();
+  today.setMinutes(today.getMinutes() - today.getTimezoneOffset());
+  return today.toISOString().slice(0, 10);
+}
+
 function App() {
+  const travelDateInputRef = useRef(null);
   const [locations, setLocations] = useState([]);
   const [start, setStart] = useState('Amsterdam');
   const [end, setEnd] = useState('Vienna');
+  const [travelDate, setTravelDate] = useState(todayString());
   const [pathResult, setPathResult] = useState(null);
   const [closestInput, setClosestInput] = useState('Amsterdam, Paris, Berlin');
   const [closestResult, setClosestResult] = useState(null);
@@ -187,15 +195,16 @@ function App() {
     return payload;
   }
 
-  async function findShortestPath(nextStart = start, nextEnd = end) {
+  async function findShortestPath(nextStart = start, nextEnd = end, nextDate = travelDate) {
     setLoading(true);
     setError('');
     setPathResult(null);
     try {
-      const params = new URLSearchParams({ start: nextStart, end: nextEnd });
+      const params = new URLSearchParams({ start: nextStart, end: nextEnd, date: nextDate });
       const result = await requestJson(`/api/shortest-path?${params}`);
       setStart(nextStart);
       setEnd(nextEnd);
+      setTravelDate(nextDate);
       setPathResult(result);
     } catch (err) {
       setError(err.message);
@@ -218,6 +227,14 @@ function App() {
     }
   }
 
+  function handleTravelDateChange(event) {
+    const nextDate = event.currentTarget.value;
+    setTravelDate(nextDate);
+    if (pathResult && nextDate) {
+      findShortestPath(start, end, nextDate);
+    }
+  }
+
   useEffect(() => {
     if (locations.length > 0 && pathResult === null) {
       findShortestPath('Amsterdam', 'Vienna');
@@ -231,8 +248,8 @@ function App() {
           <p className="eyebrow">Dijkstra powered rail planner</p>
           <h1>European Rail Navigator</h1>
           <p className="lede">
-            Search the rail graph from <code>europeanRail.dot</code> and trace the fastest directed route
-            between cities.
+            Search the rail graph from <code>europeanRail.dot</code>, trace the fastest directed route,
+            and estimate date-sensitive fares between cities.
           </p>
         </div>
         <RailMap path={pathResult?.path ?? []} locations={locations} />
@@ -253,13 +270,32 @@ function App() {
               Destination
               <input list="cities" value={end} onChange={(event) => setEnd(event.target.value)} />
             </label>
-            <button type="button" onClick={() => findShortestPath()} disabled={loading}>
+            <label>
+              Travel date
+              <input
+                ref={travelDateInputRef}
+                type="date"
+                min={todayString()}
+                value={travelDate}
+                onChange={handleTravelDateChange}
+                onInput={handleTravelDateChange}
+              />
+            </label>
+            <button
+              type="button"
+              onClick={() => findShortestPath(start, end, travelDateInputRef.current?.value || travelDate)}
+              disabled={loading}
+            >
               Find Route
             </button>
           </div>
           <div className="quick-routes" aria-label="Sample routes">
             {sampleRoutes.map(([from, to]) => (
-              <button key={`${from}-${to}`} type="button" onClick={() => findShortestPath(from, to)}>
+              <button
+                key={`${from}-${to}`}
+                type="button"
+                onClick={() => findShortestPath(from, to, travelDateInputRef.current?.value || travelDate)}
+              >
                 {from} to {to}
               </button>
             ))}
@@ -301,6 +337,10 @@ function App() {
           </div>
           {pathResult ? (
             <>
+              <p className="pricing-note">
+                Fare estimate for {pathResult.travelDate}. Live checkout fares vary by operator, availability,
+                train, and ticket type.
+              </p>
               <ol className="path-list">
                 {pathResult.path.map((city, index) => (
                   <li key={`${city}-${index}`}>
