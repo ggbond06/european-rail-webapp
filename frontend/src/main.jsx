@@ -157,6 +157,7 @@ function todayString() {
 
 function App() {
   const travelDateInputRef = useRef(null);
+  const [currentPath, setCurrentPath] = useState(window.location.pathname);
   const [locations, setLocations] = useState([]);
   const [start, setStart] = useState('Amsterdam');
   const [end, setEnd] = useState('Vienna');
@@ -174,6 +175,22 @@ function App() {
   });
   const [cartItems, setCartItems] = useState([]);
   const [cartMessage, setCartMessage] = useState('');
+
+  useEffect(() => {
+    function handleNavigation() {
+      setCurrentPath(window.location.pathname);
+    }
+    window.addEventListener('popstate', handleNavigation);
+    return () => window.removeEventListener('popstate', handleNavigation);
+  }, []);
+
+  useEffect(() => {
+    if (currentPath === '/register') {
+      setAuthMode('register');
+    } else if (currentPath === '/login') {
+      setAuthMode('login');
+    }
+  }, [currentPath]);
 
   useEffect(() => {
     fetch('/api/locations')
@@ -279,9 +296,15 @@ function App() {
       localStorage.setItem('railSession', JSON.stringify(result));
       setAuthForm({ name: '', email: '', password: '' });
       setCartMessage(`Signed in as ${result.user.name}.`);
+      navigateTo('/');
     } catch (err) {
       setCartMessage(err.message);
     }
+  }
+
+  function navigateTo(path) {
+    window.history.pushState({}, '', path);
+    setCurrentPath(path);
   }
 
   function signOut() {
@@ -359,8 +382,40 @@ function App() {
     }
   }, [locations]);
 
+  if (currentPath === '/login' || currentPath === '/register') {
+    return (
+      <AuthPage
+        authMode={authMode}
+        authForm={authForm}
+        cartMessage={cartMessage}
+        setAuthForm={setAuthForm}
+        setAuthMode={setAuthMode}
+        submitAuth={submitAuth}
+        navigateTo={navigateTo}
+      />
+    );
+  }
+
   return (
     <main className="app-shell">
+      <nav className="top-nav" aria-label="Account navigation">
+        <a href="/" onClick={(event) => { event.preventDefault(); navigateTo('/'); }}>
+          European Rail Navigator
+        </a>
+        <div className="top-nav-actions">
+          {session ? (
+            <>
+              <span>{session.user.name}</span>
+              <button type="button" className="secondary-button" onClick={signOut}>Sign Out</button>
+            </>
+          ) : (
+            <>
+              <a href="/login" onClick={(event) => { event.preventDefault(); navigateTo('/login'); }}>Login</a>
+              <a href="/register" onClick={(event) => { event.preventDefault(); navigateTo('/register'); }}>Register</a>
+            </>
+          )}
+        </div>
+      </nav>
       <section className="hero-band">
         <div className="hero-copy">
           <p className="eyebrow">Dijkstra powered rail planner</p>
@@ -438,57 +493,6 @@ function App() {
               Find Meeting City
             </button>
           </div>
-        </div>
-
-        <div className="tool-panel account-panel">
-          <div className="panel-heading">
-            <span>Account</span>
-            <small>{session ? session.user.email : 'Login required for cart'}</small>
-          </div>
-          {session ? (
-            <div className="account-summary">
-              <p>Signed in as <strong>{session.user.name}</strong>.</p>
-              <button type="button" className="secondary-button" onClick={signOut}>Sign Out</button>
-            </div>
-          ) : (
-            <form className="auth-form" onSubmit={submitAuth}>
-              <div className="auth-tabs" role="tablist" aria-label="Account mode">
-                <button type="button" className={authMode === 'login' ? 'active' : ''} onClick={() => setAuthMode('login')}>
-                  Login
-                </button>
-                <button type="button" className={authMode === 'register' ? 'active' : ''} onClick={() => setAuthMode('register')}>
-                  Register
-                </button>
-              </div>
-              {authMode === 'register' && (
-                <label>
-                  Name
-                  <input
-                    value={authForm.name}
-                    onChange={(event) => setAuthForm({ ...authForm, name: event.target.value })}
-                  />
-                </label>
-              )}
-              <label>
-                Email
-                <input
-                  type="email"
-                  value={authForm.email}
-                  onChange={(event) => setAuthForm({ ...authForm, email: event.target.value })}
-                />
-              </label>
-              <label>
-                Password
-                <input
-                  type="password"
-                  value={authForm.password}
-                  onChange={(event) => setAuthForm({ ...authForm, password: event.target.value })}
-                />
-              </label>
-              <button type="submit">{authMode === 'login' ? 'Login' : 'Create Account'}</button>
-            </form>
-          )}
-          {cartMessage && <p className="cart-message">{cartMessage}</p>}
         </div>
       </section>
 
@@ -603,6 +607,76 @@ function App() {
           <option value={city} key={city} />
         ))}
       </datalist>
+    </main>
+  );
+}
+
+function AuthPage({ authMode, authForm, cartMessage, setAuthForm, setAuthMode, submitAuth, navigateTo }) {
+  const isRegistering = authMode === 'register';
+
+  function switchMode(mode) {
+    setAuthMode(mode);
+    navigateTo(mode === 'register' ? '/register' : '/login');
+  }
+
+  return (
+    <main className="auth-page">
+      <a
+        className="auth-home-link"
+        href="/"
+        onClick={(event) => {
+          event.preventDefault();
+          navigateTo('/');
+        }}
+      >
+        European Rail Navigator
+      </a>
+      <section className="auth-card" aria-label={isRegistering ? 'Register' : 'Login'}>
+        <p className="eyebrow">Passenger account</p>
+        <h1>{isRegistering ? 'Create your account' : 'Welcome back'}</h1>
+        <p className="auth-copy">
+          {isRegistering
+            ? 'Register to save train trips, keep a cart, and purchase estimated tickets.'
+            : 'Log in to add routes to your shopping cart and complete checkout.'}
+        </p>
+        <div className="auth-tabs" role="tablist" aria-label="Account mode">
+          <button type="button" className={!isRegistering ? 'active' : ''} onClick={() => switchMode('login')}>
+            Login
+          </button>
+          <button type="button" className={isRegistering ? 'active' : ''} onClick={() => switchMode('register')}>
+            Register
+          </button>
+        </div>
+        <form className="auth-form" onSubmit={submitAuth}>
+          {isRegistering && (
+            <label>
+              Name
+              <input
+                value={authForm.name}
+                onChange={(event) => setAuthForm({ ...authForm, name: event.target.value })}
+              />
+            </label>
+          )}
+          <label>
+            Email
+            <input
+              type="email"
+              value={authForm.email}
+              onChange={(event) => setAuthForm({ ...authForm, email: event.target.value })}
+            />
+          </label>
+          <label>
+            Password
+            <input
+              type="password"
+              value={authForm.password}
+              onChange={(event) => setAuthForm({ ...authForm, password: event.target.value })}
+            />
+          </label>
+          <button type="submit">{isRegistering ? 'Create Account' : 'Login'}</button>
+        </form>
+        {cartMessage && <p className="cart-message">{cartMessage}</p>}
+      </section>
     </main>
   );
 }
