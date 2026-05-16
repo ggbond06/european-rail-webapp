@@ -142,7 +142,6 @@ function formatDuration(minutes) {
 }
 
 function App() {
-  const [hasEntered, setHasEntered] = useState(false);
   const [locations, setLocations] = useState([]);
   const [start, setStart] = useState('Amsterdam');
   const [end, setEnd] = useState('Vienna');
@@ -215,10 +214,6 @@ function App() {
       findShortestPath('Amsterdam', 'Vienna');
     }
   }, [locations]);
-
-  if (!hasEntered) {
-    return <CoverScreen onEnter={() => setHasEntered(true)} />;
-  }
 
   return (
     <main className="app-shell">
@@ -340,38 +335,6 @@ function App() {
         ))}
       </datalist>
     </main>
-  );
-}
-
-function CoverScreen({ onEnter }) {
-  return (
-    <button
-      className="cover-screen"
-      type="button"
-      onClick={onEnter}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          onEnter();
-        }
-      }}
-      aria-label="Enter European Rail Navigator"
-    >
-      <span className="cover-map" aria-hidden="true">
-        <span className="cover-line cover-line-one" />
-        <span className="cover-line cover-line-two" />
-        <span className="cover-line cover-line-three" />
-        <span className="cover-city city-amsterdam">Amsterdam</span>
-        <span className="cover-city city-paris">Paris</span>
-        <span className="cover-city city-milan">Milan</span>
-        <span className="cover-city city-vienna">Vienna</span>
-      </span>
-      <span className="cover-content">
-        <span className="cover-eyebrow">European rail shortest paths</span>
-        <span className="cover-title">European Rail Navigator</span>
-        <span className="cover-copy">Plan the fastest route across 118 connected rail stations.</span>
-        <span className="cover-action">Click anywhere to enter</span>
-      </span>
-    </button>
   );
 }
 
