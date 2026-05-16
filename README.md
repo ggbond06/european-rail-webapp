@@ -4,6 +4,11 @@ A Java + React web app for finding shortest train routes through the `europeanRa
 graph. The backend loads the DOT data and runs Dijkstra's algorithm; the frontend
 renders the planner and a real OpenStreetMap route preview.
 
+Each graph edge includes `minutes` and `price_eur`. The price values are stored
+as estimated standard adult second-class segment fares in euros, because live
+European rail fares vary by operator, booking date, train, class, availability,
+and fare type.
+
 ## Project Layout
 
 ```text

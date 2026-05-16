@@ -141,6 +141,14 @@ function formatDuration(minutes) {
   return `${hours} hr ${mins} min`;
 }
 
+function formatPrice(price) {
+  if (price === null || price === undefined) return '€0.00';
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'EUR',
+  }).format(price);
+}
+
 function App() {
   const [locations, setLocations] = useState([]);
   const [start, setStart] = useState('Amsterdam');
@@ -168,6 +176,7 @@ function App() {
       from: city,
       to: pathResult.path[index + 1],
       minutes: pathResult.times[index],
+      price: pathResult.prices?.[index] ?? 0,
     }));
   }, [pathResult]);
 
@@ -284,7 +293,11 @@ function App() {
         <div className="result-panel">
           <div className="result-title">
             <span>Route</span>
-            <strong>{pathResult ? formatDuration(pathResult.totalMinutes) : 'Waiting'}</strong>
+            <strong>
+              {pathResult
+                ? `${formatDuration(pathResult.totalMinutes)} · ${formatPrice(pathResult.totalPriceEuros)}`
+                : 'Waiting'}
+            </strong>
           </div>
           {pathResult ? (
             <>
@@ -292,7 +305,11 @@ function App() {
                 {pathResult.path.map((city, index) => (
                   <li key={`${city}-${index}`}>
                     <span>{city}</span>
-                    {index < pathResult.times.length && <small>{formatDuration(pathResult.times[index])}</small>}
+                    {index < pathResult.times.length && (
+                      <small>
+                        {formatDuration(pathResult.times[index])} · {formatPrice(pathResult.prices?.[index] ?? 0)}
+                      </small>
+                    )}
                   </li>
                 ))}
               </ol>
@@ -302,6 +319,7 @@ function App() {
                     <span className="segment-from">{segment.from}</span>
                     <span className="segment-to">{segment.to}</span>
                     <strong className="segment-time">{formatDuration(segment.minutes)}</strong>
+                    <strong className="segment-price">{formatPrice(segment.price)}</strong>
                   </div>
                 ))}
               </div>

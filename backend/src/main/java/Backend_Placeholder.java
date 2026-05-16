@@ -38,8 +38,15 @@ public class Backend_Placeholder implements BackendInterface {
     public List<Double> findTimesOnShortestPath(String start, String end) {
         List<String> locations = graph.shortestPathData(start,end);
         List<Double> times = new ArrayList<>();
-        for(int i=0;i<locations.size();i++) times.add(i+1.0);
+        for(int i=0;i<locations.size()-1;i++) times.add(i+1.0);
         return times;
+    }
+
+    public List<Double> findPricesOnShortestPath(String start, String end) {
+        List<String> locations = graph.shortestPathData(start,end);
+        List<Double> prices = new ArrayList<>();
+        for(int i=0;i<locations.size()-1;i++) prices.add(i+2.0);
+        return prices;
     }
 
     // always returns last location

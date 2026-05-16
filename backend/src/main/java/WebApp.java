@@ -108,18 +108,22 @@ public class WebApp {
 
         List<String> path = BACKEND.findLocationsOnShortestPath(start, end);
         List<Double> times = BACKEND.findTimesOnShortestPath(start, end);
+        List<Double> prices = BACKEND.findPricesOnShortestPath(start, end);
         if (path.isEmpty()) {
             sendJson(exchange, 404, "{\"error\":\"No rail path was found between those cities.\"}");
             return;
         }
 
         double total = sum(times);
+        double totalPrice = roundCurrency(sum(prices));
         String json = "{"
                 + "\"start\":" + quote(start) + ","
                 + "\"end\":" + quote(end) + ","
                 + "\"path\":" + stringListToJson(path) + ","
                 + "\"times\":" + numberListToJson(times) + ","
-                + "\"totalMinutes\":" + formatNumber(total)
+                + "\"prices\":" + numberListToJson(prices) + ","
+                + "\"totalMinutes\":" + formatNumber(total) + ","
+                + "\"totalPriceEuros\":" + formatNumber(totalPrice)
                 + "}";
         sendJson(exchange, 200, json);
     }
@@ -222,6 +226,10 @@ public class WebApp {
             total += value;
         }
         return total;
+    }
+
+    private static double roundCurrency(double value) {
+        return Math.round(value * 100.0) / 100.0;
     }
 
     private static String stringListToJson(List<String> values) {

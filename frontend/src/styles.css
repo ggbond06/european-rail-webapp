@@ -294,7 +294,7 @@ h1 {
   align-items: center;
   display: grid;
   gap: 10px;
-  grid-template-columns: minmax(160px, 1fr) minmax(210px, 1fr) minmax(120px, max-content);
+  grid-template-columns: minmax(150px, 1fr) minmax(190px, 1fr) minmax(110px, max-content) minmax(92px, max-content);
   min-height: 38px;
 }
 
@@ -307,10 +307,15 @@ h1 {
   text-align: left;
 }
 
-.segment-time {
+.segment-time,
+.segment-price {
   justify-self: end;
   text-align: right;
   white-space: nowrap;
+}
+
+.segment-price {
+  color: #b0472b;
 }
 
 .meeting-result {
@@ -360,14 +365,25 @@ h1 {
     height: 250px;
   }
 
-  .path-list li,
-  .segment-table div {
+  .path-list li {
     grid-template-columns: 30px minmax(0, 1fr);
   }
 
+  .segment-table div {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
   .path-list small,
-  .segment-to,
-  .segment-table strong {
+  .segment-to {
+    grid-column: 2;
+  }
+
+  .segment-time {
+    grid-column: 1;
+    justify-self: start;
+  }
+
+  .segment-price {
     grid-column: 2;
   }
 }

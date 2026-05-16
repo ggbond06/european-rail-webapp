@@ -51,6 +51,17 @@ public interface BackendInterface {
     public List<Double> findTimesOnShortestPath(String start, String end);
 
     /**
+     * Return the estimated ticket prices in euros between each two nodes on
+     * the shortest path from start to end, or an empty list if no such path
+     * exists.
+     * @param start the start of the path
+     * @param end the end of the path
+     * @return a list with the estimated prices in euros between two nodes
+     *         along the shortest path from start to end
+     */
+    public List<Double> findPricesOnShortestPath(String start, String end);
+
+    /**
      * Returns the location that can be reached from all of the specified start 
      * locations in the shortest time: minimizing the sum of the times from 
      * each start location.

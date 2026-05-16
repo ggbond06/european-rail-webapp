@@ -36,7 +36,7 @@ public class FrontendTests {
         assertTrue(html.contains("<li>Computer Sciences and Statistics</li>"));
         assertTrue(html.contains("<li>Weeks Hall for Geological Sciences</li>"));
         assertTrue(html.contains("</ol>"));
-        assertTrue(html.contains("Total time: 6.0 minutes"));
+        assertTrue(html.contains("Total time: 3.0 minutes"));
     }
 
     /**
