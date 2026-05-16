@@ -409,7 +409,8 @@ h1 {
 }
 
 .cart-add-button {
-  justify-self: start;
+  display: block;
+  margin-left: auto;
   margin-top: 16px;
 }
 
