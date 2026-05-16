@@ -40,6 +40,10 @@ public class WebApp {
             "dist",
             "../frontend/dist"));
     private static final BackendInterface BACKEND = createBackend();
+    private static final PriceCache PRICE_CACHE = new PriceCache(Paths.get(findExistingPath(
+            "data/pricing-cache.tsv",
+            "pricing-cache.tsv",
+            "../data/pricing-cache.tsv")));
 
     public static void main(String[] args) throws IOException {
         if (args.length != 1) {
@@ -123,11 +127,13 @@ public class WebApp {
         List<Double> times = BACKEND.findTimesOnShortestPath(start, end);
         List<Double> basePrices = BACKEND.findPricesOnShortestPath(start, end);
         double priceMultiplier = datePriceMultiplier(travelDate);
-        List<Double> prices = adjustPricesForDate(basePrices, priceMultiplier);
         if (path.isEmpty()) {
             sendJson(exchange, 404, "{\"error\":\"No rail path was found between those cities.\"}");
             return;
         }
+        PriceCache.CachedPriceResult cachedPrices =
+                PRICE_CACHE.getPrices(path, basePrices, travelDate, priceMultiplier);
+        List<Double> prices = cachedPrices.getPrices();
 
         double total = sum(times);
         double totalPrice = roundCurrency(sum(prices));
@@ -139,6 +145,7 @@ public class WebApp {
                 + "\"prices\":" + numberListToJson(prices) + ","
                 + "\"travelDate\":" + quote(travelDate.toString()) + ","
                 + "\"pricingMode\":\"date_adjusted_estimate\","
+                + "\"priceCacheStatus\":" + quote(cachedPrices.getCacheStatus()) + ","
                 + "\"priceMultiplier\":" + formatNumber(priceMultiplier) + ","
                 + "\"totalMinutes\":" + formatNumber(total) + ","
                 + "\"totalPriceEuros\":" + formatNumber(totalPrice)
@@ -266,14 +273,6 @@ public class WebApp {
             throw new IllegalArgumentException("Travel date is in the past");
         }
         return date;
-    }
-
-    private static List<Double> adjustPricesForDate(List<Double> basePrices, double multiplier) {
-        List<Double> adjusted = new ArrayList<>();
-        for (Double basePrice : basePrices) {
-            adjusted.add(roundCurrency(basePrice * multiplier));
-        }
-        return adjusted;
     }
 
     private static double datePriceMultiplier(LocalDate travelDate) {

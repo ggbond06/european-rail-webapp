@@ -13,6 +13,10 @@ The route planner also accepts a travel date. Prices are adjusted by travel date
 to model advance-purchase, weekend, and seasonal fare changes. They should be
 treated as planning estimates, not guaranteed live checkout prices.
 
+Date-adjusted segment prices are cached locally in `data/pricing-cache.tsv`.
+Cached prices are reused for six hours, then refreshed by the current pricing
+provider. The cache file is generated at runtime and ignored by git.
+
 ## Project Layout
 
 ```text

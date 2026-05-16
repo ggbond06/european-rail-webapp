@@ -1,5 +1,6 @@
 node_modules/
 *.class
 backend/build/
+data/pricing-cache.tsv
 frontend/node_modules/
 frontend/dist/

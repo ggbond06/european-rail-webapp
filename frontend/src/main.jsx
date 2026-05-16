@@ -338,8 +338,8 @@ function App() {
           {pathResult ? (
             <>
               <p className="pricing-note">
-                Fare estimate for {pathResult.travelDate}. Live checkout fares vary by operator, availability,
-                train, and ticket type.
+                Cached fare estimate for {pathResult.travelDate}. Live checkout fares vary by operator,
+                availability, train, and ticket type.
               </p>
               <ol className="path-list">
                 {pathResult.path.map((city, index) => (
