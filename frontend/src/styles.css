@@ -369,7 +369,8 @@ h1 {
 }
 
 .cart-add-button {
-  margin-bottom: 14px;
+  justify-self: start;
+  margin-top: 16px;
 }
 
 .path-list li {

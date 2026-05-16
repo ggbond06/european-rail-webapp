@@ -514,9 +514,6 @@ function App() {
                 Cached fare estimate for {pathResult.travelDate}. Live checkout fares vary by operator,
                 availability, train, and ticket type.
               </p>
-              <button type="button" className="cart-add-button" onClick={addCurrentTripToCart}>
-                Add This Trip to Cart
-              </button>
               <ol className="path-list">
                 {pathResult.path.map((city, index) => (
                   <li key={`${city}-${index}`}>
@@ -539,6 +536,9 @@ function App() {
                   </div>
                 ))}
               </div>
+              <button type="button" className="cart-add-button" onClick={addCurrentTripToCart}>
+                Add This Trip to Cart
+              </button>
             </>
           ) : (
             <p className="empty-state">Choose a start and destination to calculate a route.</p>
