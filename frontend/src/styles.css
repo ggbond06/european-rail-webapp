@@ -170,7 +170,6 @@ code {
 }
 
 .hero-band {
-  align-items: stretch;
   background:
     linear-gradient(90deg, rgba(246, 241, 232, 0.96) 0%, rgba(246, 241, 232, 0.86) 42%, rgba(23, 33, 31, 0.18) 100%),
     linear-gradient(180deg, rgba(23, 33, 31, 0.06), rgba(23, 33, 31, 0.2)),
@@ -178,14 +177,11 @@ code {
   background-position: center;
   background-size: cover;
   border-bottom: 1px solid #d8d2c6;
-  display: grid;
-  gap: 28px;
-  grid-template-columns: minmax(280px, 0.82fr) minmax(340px, 1fr);
-  padding: 40px clamp(18px, 5vw, 72px) 28px;
+  min-height: 360px;
+  padding: clamp(58px, 8vw, 96px) clamp(18px, 5vw, 72px);
 }
 
 .hero-copy {
-  align-self: center;
   max-width: 680px;
   text-shadow: 0 1px 18px rgba(246, 241, 232, 0.55);
 }
@@ -210,6 +206,12 @@ h1 {
   line-height: 1.55;
   margin: 18px 0 0;
   max-width: 560px;
+}
+
+.map-band {
+  background: #f6f1e8;
+  border-bottom: 1px solid #d8d2c6;
+  padding: 22px clamp(18px, 5vw, 72px) 0;
 }
 
 .rail-map {
@@ -698,7 +700,8 @@ h1 {
 
 @media (max-width: 520px) {
   .hero-band {
-    padding-top: 26px;
+    min-height: 300px;
+    padding-top: 40px;
   }
 
   h1 {

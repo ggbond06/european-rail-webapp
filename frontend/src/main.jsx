@@ -447,6 +447,9 @@ function App() {
             and estimate date-sensitive fares between cities.
           </p>
         </div>
+      </section>
+
+      <section className="map-band" aria-label="Route map">
         <RailMap path={pathResult?.path ?? []} locations={locations} />
       </section>
 
