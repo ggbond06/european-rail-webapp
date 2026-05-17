@@ -34,9 +34,17 @@ public class Backend_Placeholder implements BackendInterface {
         return graph.shortestPathData(start,end);
     }
 
+    public List<String> findLocationsOnPath(String start, String end, String optimizationMode) {
+        return findLocationsOnShortestPath(start,end);
+    }
+
     // returns list of increasing values
     public List<Double> findTimesOnShortestPath(String start, String end) {
         List<String> locations = graph.shortestPathData(start,end);
+        return findTimesOnPath(locations);
+    }
+
+    public List<Double> findTimesOnPath(List<String> locations) {
         List<Double> times = new ArrayList<>();
         for(int i=0;i<locations.size()-1;i++) times.add(i+1.0);
         return times;
@@ -44,6 +52,10 @@ public class Backend_Placeholder implements BackendInterface {
 
     public List<Double> findPricesOnShortestPath(String start, String end) {
         List<String> locations = graph.shortestPathData(start,end);
+        return findPricesOnPath(locations);
+    }
+
+    public List<Double> findPricesOnPath(List<String> locations) {
         List<Double> prices = new ArrayList<>();
         for(int i=0;i<locations.size()-1;i++) prices.add(i+2.0);
         return prices;
@@ -53,5 +65,10 @@ public class Backend_Placeholder implements BackendInterface {
     public String getClosestLocationFromAll(List<String> starts) throws NoSuchElementException {
         List<String> all = nodes;
         return all.get(all.size()-1);
+    }
+
+    public String getClosestLocationFromAll(List<String> starts, String optimizationMode)
+            throws NoSuchElementException {
+        return getClosestLocationFromAll(starts);
     }
 }

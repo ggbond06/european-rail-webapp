@@ -41,6 +41,17 @@ public interface BackendInterface {
     public List<String> findLocationsOnShortestPath(String start, String end);
 
     /**
+     * Return the sequence of locations along an optimized path from start to
+     * end. Supported optimization modes are time, price, and transfers.
+     * Unknown modes should behave like time.
+     * @param start the start of the path
+     * @param end the end of the path
+     * @param optimizationMode the mode used to choose the path
+     * @return a list with the nodes along the optimized path
+     */
+    public List<String> findLocationsOnPath(String start, String end, String optimizationMode);
+
+    /**
      * Return the times in minutes between each two nodes on the shortest path 
      * from start to end, or an empty list if no such path exists.
      * @param start the start of the path
@@ -49,6 +60,14 @@ public interface BackendInterface {
      * shortest path from start to end, or an empty list if no such path exists
      */
     public List<Double> findTimesOnShortestPath(String start, String end);
+
+    /**
+     * Return the times in minutes between each two nodes along the provided
+     * path.
+     * @param path ordered list of city names
+     * @return edge times for each segment in path
+     */
+    public List<Double> findTimesOnPath(List<String> path);
 
     /**
      * Return the estimated ticket prices in euros between each two nodes on
@@ -62,6 +81,14 @@ public interface BackendInterface {
     public List<Double> findPricesOnShortestPath(String start, String end);
 
     /**
+     * Return the estimated ticket prices in euros between each two nodes along
+     * the provided path.
+     * @param path ordered list of city names
+     * @return edge prices for each segment in path
+     */
+    public List<Double> findPricesOnPath(List<String> path);
+
+    /**
      * Returns the location that can be reached from all of the specified start 
      * locations in the shortest time: minimizing the sum of the times from 
      * each start location.
@@ -73,4 +100,17 @@ public interface BackendInterface {
      *         not exist within the graph
      */
     public String getClosestLocationFromAll(List<String> starts) throws NoSuchElementException;
+
+    /**
+     * Returns the location that best satisfies the provided optimization mode
+     * for all start locations. Supported modes are time, price, transfers, and
+     * fairness. Fairness minimizes the difference between the longest and
+     * shortest travel times, then breaks ties by total travel time.
+     * @param starts the list of locations to optimize from
+     * @param optimizationMode the optimization mode
+     * @return the best shared destination
+     * @throws NoSuchElementException if no shared destination can be reached
+     */
+    public String getClosestLocationFromAll(List<String> starts, String optimizationMode)
+            throws NoSuchElementException;
 }

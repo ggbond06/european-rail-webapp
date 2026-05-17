@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.PriorityQueue;
 
 /**
  * Backend class that implements BackendInterface. Uses a GraphADT to store
@@ -16,6 +17,7 @@ public class Backend implements BackendInterface {
     private GraphADT<String, Double> graph;
     private List<String> allLocations;
     private Map<String, Double> edgePrices;
+    private Map<String, List<RouteEdge>> outgoingEdges;
 
     /**
      * Constructor that takes a GraphADT to store graph data.
@@ -25,6 +27,7 @@ public class Backend implements BackendInterface {
         this.graph = graph;
         this.allLocations = new ArrayList<>();
         this.edgePrices = new HashMap<>();
+        this.outgoingEdges = new HashMap<>();
     }
 
     /**
@@ -42,6 +45,7 @@ public class Backend implements BackendInterface {
         }
         allLocations.clear();
         edgePrices.clear();
+        outgoingEdges.clear();
 
         BufferedReader reader = new BufferedReader(new FileReader(filename));
         String line;
@@ -78,6 +82,9 @@ public class Backend implements BackendInterface {
                 // Insert the edge (updates weight if edge already exists)
                 graph.insertEdge(source, destination, minutes);
                 edgePrices.put(edgeKey(source, destination), price);
+                outgoingEdges.computeIfAbsent(source, key -> new ArrayList<>())
+                        .add(new RouteEdge(destination, minutes, price));
+                outgoingEdges.computeIfAbsent(destination, key -> new ArrayList<>());
             }
         }
         reader.close();
@@ -102,8 +109,13 @@ public class Backend implements BackendInterface {
      */
     @Override
     public List<String> findLocationsOnShortestPath(String start, String end) {
+        return findLocationsOnPath(start, end, "time");
+    }
+
+    @Override
+    public List<String> findLocationsOnPath(String start, String end, String optimizationMode) {
         try {
-            return graph.shortestPathData(start, end);
+            return computeOptimizedRoute(start, end, optimizationMode).path;
         } catch (NoSuchElementException e) {
             return new ArrayList<>();
         }
@@ -121,6 +133,11 @@ public class Backend implements BackendInterface {
     @Override
     public List<Double> findTimesOnShortestPath(String start, String end) {
         List<String> path = findLocationsOnShortestPath(start, end);
+        return findTimesOnPath(path);
+    }
+
+    @Override
+    public List<Double> findTimesOnPath(List<String> path) {
         List<Double> times = new ArrayList<>();
         if (path.isEmpty()) {
             return times;
@@ -140,6 +157,11 @@ public class Backend implements BackendInterface {
     @Override
     public List<Double> findPricesOnShortestPath(String start, String end) {
         List<String> path = findLocationsOnShortestPath(start, end);
+        return findPricesOnPath(path);
+    }
+
+    @Override
+    public List<Double> findPricesOnPath(List<String> path) {
         List<Double> prices = new ArrayList<>();
         if (path.isEmpty()) {
             return prices;
@@ -170,6 +192,12 @@ public class Backend implements BackendInterface {
      */
     @Override
     public String getClosestLocationFromAll(List<String> starts) throws NoSuchElementException {
+        return getClosestLocationFromAll(starts, "time");
+    }
+
+    @Override
+    public String getClosestLocationFromAll(List<String> starts, String optimizationMode)
+            throws NoSuchElementException {
         // Validate that all start locations exist in the graph
         for (String start : starts) {
             if (!graph.containsNode(start)) {
@@ -178,24 +206,27 @@ public class Backend implements BackendInterface {
         }
 
         String bestLocation = null;
-        double bestTotalCost = Double.MAX_VALUE;
+        MeetingScore bestScore = null;
+        String mode = normalizeMode(optimizationMode);
 
         // Try every location as a potential meeting point
         for (String candidate : allLocations) {
-            double totalCost = 0;
+            MeetingScore score = new MeetingScore();
             boolean reachable = true;
 
             for (String start : starts) {
                 try {
-                    totalCost += graph.shortestPathCost(start, candidate);
+                    RouteResult route = computeOptimizedRoute(start, candidate,
+                            mode.equals("fairness") ? "time" : mode);
+                    score.addRoute(route);
                 } catch (NoSuchElementException e) {
                     reachable = false;
                     break;
                 }
             }
 
-            if (reachable && totalCost < bestTotalCost) {
-                bestTotalCost = totalCost;
+            if (reachable && (bestScore == null || compareMeetingScores(score, bestScore, mode) < 0)) {
+                bestScore = score;
                 bestLocation = candidate;
             }
         }
@@ -206,6 +237,108 @@ public class Backend implements BackendInterface {
         }
 
         return bestLocation;
+    }
+
+    private RouteResult computeOptimizedRoute(String start, String end, String optimizationMode) {
+        if (!graph.containsNode(start) || !graph.containsNode(end)) {
+            throw new NoSuchElementException("Start or destination location not found");
+        }
+
+        String mode = normalizeMode(optimizationMode);
+        PriorityQueue<RouteState> queue = new PriorityQueue<>(
+                (left, right) -> compareRouteStates(left, right, mode));
+        Map<String, RouteState> best = new HashMap<>();
+        RouteState initial = new RouteState(start, null, 0, 0, 0);
+        queue.add(initial);
+        best.put(start, initial);
+
+        while (!queue.isEmpty()) {
+            RouteState current = queue.poll();
+            if (best.get(current.city) != current) {
+                continue;
+            }
+            if (current.city.equals(end)) {
+                return current.toRouteResult();
+            }
+
+            for (RouteEdge edge : outgoingEdges.getOrDefault(current.city, new ArrayList<>())) {
+                RouteState next = new RouteState(
+                        edge.to,
+                        current,
+                        current.totalMinutes + edge.minutes,
+                        current.totalPrice + edge.price,
+                        current.transfers + 1);
+                RouteState previousBest = best.get(next.city);
+                if (previousBest == null || compareRouteStates(next, previousBest, mode) < 0) {
+                    best.put(next.city, next);
+                    queue.add(next);
+                }
+            }
+        }
+
+        throw new NoSuchElementException("No path from start to end node");
+    }
+
+    private String normalizeMode(String optimizationMode) {
+        if (optimizationMode == null) {
+            return "time";
+        }
+        String mode = optimizationMode.trim().toLowerCase();
+        if (mode.equals("price") || mode.equals("transfers") || mode.equals("fairness")) {
+            return mode;
+        }
+        return "time";
+    }
+
+    private int compareRouteStates(RouteState left, RouteState right, String mode) {
+        if (mode.equals("price")) {
+            return compareValues(left.totalPrice, right.totalPrice,
+                    left.totalMinutes, right.totalMinutes,
+                    left.transfers, right.transfers);
+        }
+        if (mode.equals("transfers")) {
+            return compareValues(left.transfers, right.transfers,
+                    left.totalMinutes, right.totalMinutes,
+                    left.totalPrice, right.totalPrice);
+        }
+        return compareValues(left.totalMinutes, right.totalMinutes,
+                left.totalPrice, right.totalPrice,
+                left.transfers, right.transfers);
+    }
+
+    private int compareMeetingScores(MeetingScore left, MeetingScore right, String mode) {
+        if (mode.equals("price")) {
+            return compareValues(left.totalPrice, right.totalPrice,
+                    left.totalMinutes, right.totalMinutes,
+                    left.totalTransfers, right.totalTransfers);
+        }
+        if (mode.equals("transfers")) {
+            return compareValues(left.totalTransfers, right.totalTransfers,
+                    left.totalMinutes, right.totalMinutes,
+                    left.totalPrice, right.totalPrice);
+        }
+        if (mode.equals("fairness")) {
+            return compareValues(left.timeSpread(), right.timeSpread(),
+                    left.totalMinutes, right.totalMinutes,
+                    left.totalPrice, right.totalPrice);
+        }
+        return compareValues(left.totalMinutes, right.totalMinutes,
+                left.totalPrice, right.totalPrice,
+                left.totalTransfers, right.totalTransfers);
+    }
+
+    private int compareValues(double primaryLeft, double primaryRight,
+            double secondaryLeft, double secondaryRight,
+            double tertiaryLeft, double tertiaryRight) {
+        int primary = Double.compare(primaryLeft, primaryRight);
+        if (primary != 0) {
+            return primary;
+        }
+        int secondary = Double.compare(secondaryLeft, secondaryRight);
+        if (secondary != 0) {
+            return secondary;
+        }
+        return Double.compare(tertiaryLeft, tertiaryRight);
     }
 
     private Map<String, String> parseAttributes(String line) {
@@ -242,5 +375,87 @@ public class Backend implements BackendInterface {
             rate = 0.30;
         }
         return Math.round((6.0 + minutes * rate) * 100.0) / 100.0;
+    }
+
+    private static class RouteEdge {
+        private final String to;
+        private final double minutes;
+        private final double price;
+
+        private RouteEdge(String to, double minutes, double price) {
+            this.to = to;
+            this.minutes = minutes;
+            this.price = price;
+        }
+    }
+
+    private static class RouteState {
+        private final String city;
+        private final RouteState previous;
+        private final double totalMinutes;
+        private final double totalPrice;
+        private final int transfers;
+
+        private RouteState(String city, RouteState previous,
+                double totalMinutes, double totalPrice, int transfers) {
+            this.city = city;
+            this.previous = previous;
+            this.totalMinutes = totalMinutes;
+            this.totalPrice = totalPrice;
+            this.transfers = transfers;
+        }
+
+        private RouteResult toRouteResult() {
+            LinkedListBuilder builder = new LinkedListBuilder();
+            RouteState current = this;
+            while (current != null) {
+                builder.addFirst(current.city);
+                current = current.previous;
+            }
+            return new RouteResult(builder.values, totalMinutes, totalPrice, transfers);
+        }
+    }
+
+    private static class RouteResult {
+        private final List<String> path;
+        private final double totalMinutes;
+        private final double totalPrice;
+        private final int transfers;
+
+        private RouteResult(List<String> path, double totalMinutes,
+                double totalPrice, int transfers) {
+            this.path = path;
+            this.totalMinutes = totalMinutes;
+            this.totalPrice = totalPrice;
+            this.transfers = transfers;
+        }
+    }
+
+    private static class MeetingScore {
+        private double totalMinutes = 0;
+        private double totalPrice = 0;
+        private double shortestMinutes = Double.MAX_VALUE;
+        private double longestMinutes = 0;
+        private int totalTransfers = 0;
+
+        private void addRoute(RouteResult route) {
+            totalMinutes += route.totalMinutes;
+            totalPrice += route.totalPrice;
+            totalTransfers += route.transfers;
+            shortestMinutes = Math.min(shortestMinutes, route.totalMinutes);
+            longestMinutes = Math.max(longestMinutes, route.totalMinutes);
+        }
+
+        private double timeSpread() {
+            return longestMinutes - shortestMinutes;
+        }
+    }
+
+    private static class LinkedListBuilder {
+        private final List<String> values = new ArrayList<>();
+
+        private void addFirst(String value) {
+            values.add(0, value);
+        }
     }
 }

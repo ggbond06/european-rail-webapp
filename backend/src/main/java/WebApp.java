@@ -209,6 +209,7 @@ public class WebApp {
         String start = clean(query.get("start"));
         String end = clean(query.get("end"));
         String dateValue = clean(query.get("date"));
+        String optimizationMode = normalizeOptimizationMode(clean(query.get("mode")));
 
         if (start.isEmpty() || end.isEmpty()) {
             sendJson(exchange, 400, "{\"error\":\"Choose both a start and destination city.\"}");
@@ -223,9 +224,9 @@ public class WebApp {
             return;
         }
 
-        List<String> path = BACKEND.findLocationsOnShortestPath(start, end);
-        List<Double> times = BACKEND.findTimesOnShortestPath(start, end);
-        List<Double> basePrices = BACKEND.findPricesOnShortestPath(start, end);
+        List<String> path = BACKEND.findLocationsOnPath(start, end, optimizationMode);
+        List<Double> times = BACKEND.findTimesOnPath(path);
+        List<Double> basePrices = BACKEND.findPricesOnPath(path);
         double priceMultiplier = datePriceMultiplier(travelDate);
         if (path.isEmpty()) {
             sendJson(exchange, 404, "{\"error\":\"No rail path was found between those cities.\"}");
@@ -244,6 +245,8 @@ public class WebApp {
                 + "\"times\":" + numberListToJson(times) + ","
                 + "\"prices\":" + numberListToJson(prices) + ","
                 + "\"travelDate\":" + quote(travelDate.toString()) + ","
+                + "\"optimizationMode\":" + quote(optimizationMode) + ","
+                + "\"optimizationLabel\":" + quote(optimizationLabel(optimizationMode)) + ","
                 + "\"pricingMode\":\"date_adjusted_estimate\","
                 + "\"priceCacheStatus\":" + quote(cachedPrices.getCacheStatus()) + ","
                 + "\"priceMultiplier\":" + formatNumber(priceMultiplier) + ","
@@ -256,6 +259,7 @@ public class WebApp {
     private static void handleClosest(HttpExchange exchange) throws IOException {
         Map<String, String> query = parseQuery(exchange.getRequestURI().getRawQuery());
         String from = clean(query.get("from"));
+        String optimizationMode = normalizeMeetingMode(clean(query.get("mode")));
         List<String> starts = splitLocations(from);
 
         if (starts.isEmpty()) {
@@ -264,15 +268,36 @@ public class WebApp {
         }
 
         try {
-            String closest = BACKEND.getClosestLocationFromAll(starts);
+            String closest = BACKEND.getClosestLocationFromAll(starts, optimizationMode);
+            String pathMode = optimizationMode.equals("fairness") ? "time" : optimizationMode;
             double total = 0;
+            double totalPrice = 0;
+            int totalTransfers = 0;
+            double shortest = Double.MAX_VALUE;
+            double longest = 0;
+            List<Double> travelTimes = new ArrayList<>();
             for (String start : starts) {
-                total += sum(BACKEND.findTimesOnShortestPath(start, closest));
+                List<String> path = BACKEND.findLocationsOnPath(start, closest, pathMode);
+                List<Double> times = BACKEND.findTimesOnPath(path);
+                List<Double> prices = BACKEND.findPricesOnPath(path);
+                double routeMinutes = sum(times);
+                total += routeMinutes;
+                totalPrice += sum(prices);
+                totalTransfers += Math.max(0, path.size() - 1);
+                shortest = Math.min(shortest, routeMinutes);
+                longest = Math.max(longest, routeMinutes);
+                travelTimes.add(routeMinutes);
             }
             String json = "{"
                     + "\"starts\":" + stringListToJson(starts) + ","
                     + "\"closest\":" + quote(closest) + ","
-                    + "\"totalMinutes\":" + formatNumber(total)
+                    + "\"optimizationMode\":" + quote(optimizationMode) + ","
+                    + "\"optimizationLabel\":" + quote(optimizationLabel(optimizationMode)) + ","
+                    + "\"totalMinutes\":" + formatNumber(total) + ","
+                    + "\"totalPriceEuros\":" + formatNumber(roundCurrency(totalPrice)) + ","
+                    + "\"totalTransfers\":" + totalTransfers + ","
+                    + "\"timeSpreadMinutes\":" + formatNumber(longest - shortest) + ","
+                    + "\"travelTimes\":" + numberListToJson(travelTimes)
                     + "}";
             sendJson(exchange, 200, json);
         } catch (NoSuchElementException e) {
@@ -484,6 +509,39 @@ public class WebApp {
         }
 
         return roundCurrency(multiplier);
+    }
+
+    private static String normalizeOptimizationMode(String mode) {
+        if (mode == null) {
+            return "time";
+        }
+        if (mode.equals("price") || mode.equals("transfers")) {
+            return mode;
+        }
+        return "time";
+    }
+
+    private static String normalizeMeetingMode(String mode) {
+        if (mode == null) {
+            return "time";
+        }
+        if (mode.equals("price") || mode.equals("transfers") || mode.equals("fairness")) {
+            return mode;
+        }
+        return "time";
+    }
+
+    private static String optimizationLabel(String mode) {
+        if (mode.equals("price")) {
+            return "lowest total ticket price";
+        }
+        if (mode.equals("transfers")) {
+            return "fewest transfers";
+        }
+        if (mode.equals("fairness")) {
+            return "most equal travel time";
+        }
+        return "shortest total travel time";
     }
 
     private static String stringListToJson(List<String> values) {

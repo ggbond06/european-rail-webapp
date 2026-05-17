@@ -329,6 +329,46 @@ h1 {
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
+.mode-row {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: auto minmax(0, 1fr);
+  margin-top: 14px;
+}
+
+.mode-row > span {
+  color: #3c4a46;
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.segmented-control {
+  background: #e6ded0;
+  border-radius: 6px;
+  display: inline-grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 4px;
+}
+
+.segmented-control.wide {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.segmented-control button {
+  background: transparent;
+  color: #17211f;
+  font-size: 0.84rem;
+  font-weight: 800;
+  min-height: 34px;
+  padding: 0 10px;
+}
+
+.segmented-control button.active {
+  background: #ffffff;
+  color: #1b6f6a;
+}
+
 .city-tag-input {
   align-items: center;
   background: #ffffff;
@@ -586,6 +626,11 @@ h1 {
   font-size: 1.25rem;
 }
 
+.meeting-result small {
+  color: #5a6662;
+  font-weight: 750;
+}
+
 .cart-list {
   display: grid;
   gap: 12px;
@@ -734,7 +779,8 @@ h1 {
   }
 
   .field-row,
-  .meeting-row {
+  .meeting-row,
+  .mode-row {
     grid-template-columns: 1fr;
   }
 
@@ -770,6 +816,11 @@ h1 {
 
   .leaflet-route-map {
     height: 330px;
+  }
+
+  .segmented-control,
+  .segmented-control.wide {
+    grid-template-columns: 1fr;
   }
 
   .path-list li {

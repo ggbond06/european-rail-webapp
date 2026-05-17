@@ -11,6 +11,17 @@ const sampleRoutes = [
   ['Paris', 'Milan'],
 ];
 
+const routeOptimizationModes = [
+  { value: 'time', label: 'Fastest' },
+  { value: 'price', label: 'Lowest price' },
+  { value: 'transfers', label: 'Fewest transfers' },
+];
+
+const meetingOptimizationModes = [
+  ...routeOptimizationModes,
+  { value: 'fairness', label: 'Equal travel time' },
+];
+
 const cityCoordinates = {
   'A Coruña': [43.3623, -8.4115],
   Aachen: [50.7753, 6.0839],
@@ -149,6 +160,20 @@ function formatPrice(price) {
   }).format(price);
 }
 
+function formatMeetingMetric(result) {
+  if (!result) return '';
+  if (result.optimizationMode === 'price') {
+    return `${formatPrice(result.totalPriceEuros)} combined`;
+  }
+  if (result.optimizationMode === 'transfers') {
+    return `${result.totalTransfers} transfers combined`;
+  }
+  if (result.optimizationMode === 'fairness') {
+    return `${formatDuration(result.timeSpreadMinutes)} spread`;
+  }
+  return `${formatDuration(result.totalMinutes)} combined`;
+}
+
 function todayString() {
   const today = new Date();
   today.setMinutes(today.getMinutes() - today.getTimezoneOffset());
@@ -162,9 +187,11 @@ function App() {
   const [start, setStart] = useState('Amsterdam');
   const [end, setEnd] = useState('Vienna');
   const [travelDate, setTravelDate] = useState(todayString());
+  const [routeMode, setRouteMode] = useState('time');
   const [pathResult, setPathResult] = useState(null);
   const [closestCities, setClosestCities] = useState(['Amsterdam', 'Paris', 'Berlin']);
   const [closestDraft, setClosestDraft] = useState('');
+  const [meetingMode, setMeetingMode] = useState('time');
   const [closestResult, setClosestResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -279,16 +306,27 @@ function App() {
     }
   }
 
-  async function findShortestPath(nextStart = start, nextEnd = end, nextDate = travelDate) {
+  async function findShortestPath(
+    nextStart = start,
+    nextEnd = end,
+    nextDate = travelDate,
+    nextMode = routeMode,
+  ) {
     setLoading(true);
     setError('');
     setPathResult(null);
     try {
-      const params = new URLSearchParams({ start: nextStart, end: nextEnd, date: nextDate });
+      const params = new URLSearchParams({
+        start: nextStart,
+        end: nextEnd,
+        date: nextDate,
+        mode: nextMode,
+      });
       const result = await requestJson(`/api/shortest-path?${params}`);
       setStart(nextStart);
       setEnd(nextEnd);
       setTravelDate(nextDate);
+      setRouteMode(nextMode);
       setPathResult(result);
     } catch (err) {
       setError(err.message);
@@ -297,7 +335,7 @@ function App() {
     }
   }
 
-  async function findClosest() {
+  async function findClosest(nextMode = meetingMode) {
     const starts = closestDraft.trim()
       ? [...closestCities, closestDraft.trim()]
       : closestCities;
@@ -313,12 +351,27 @@ function App() {
     setError('');
     setClosestResult(null);
     try {
-      const params = new URLSearchParams({ from: starts.join(', ') });
+      const params = new URLSearchParams({ from: starts.join(', '), mode: nextMode });
+      setMeetingMode(nextMode);
       setClosestResult(await requestJson(`/api/closest?${params}`));
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  }
+
+  function chooseRouteMode(nextMode) {
+    setRouteMode(nextMode);
+    if (pathResult) {
+      findShortestPath(start, end, travelDateInputRef.current?.value || travelDate, nextMode);
+    }
+  }
+
+  function chooseMeetingMode(nextMode) {
+    setMeetingMode(nextMode);
+    if (closestResult) {
+      findClosest(nextMode);
     }
   }
 
@@ -523,6 +576,21 @@ function App() {
               Find Route
             </button>
           </div>
+          <div className="mode-row">
+            <span>Optimize for</span>
+            <div className="segmented-control" role="tablist" aria-label="Route optimization mode">
+              {routeOptimizationModes.map((mode) => (
+                <button
+                  key={mode.value}
+                  type="button"
+                  className={routeMode === mode.value ? 'active' : ''}
+                  onClick={() => chooseRouteMode(mode.value)}
+                >
+                  {mode.label}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="quick-routes" aria-label="Sample routes">
             {sampleRoutes.map(([from, to]) => (
               <button
@@ -567,6 +635,21 @@ function App() {
               Find Meeting City
             </button>
           </div>
+          <div className="mode-row">
+            <span>Optimize for</span>
+            <div className="segmented-control wide" role="tablist" aria-label="Meeting city optimization mode">
+              {meetingOptimizationModes.map((mode) => (
+                <button
+                  key={mode.value}
+                  type="button"
+                  className={meetingMode === mode.value ? 'active' : ''}
+                  onClick={() => chooseMeetingMode(mode.value)}
+                >
+                  {mode.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 
@@ -586,8 +669,8 @@ function App() {
           {pathResult ? (
             <>
               <p className="pricing-note">
-                Cached fare estimate for {pathResult.travelDate}. Live checkout fares vary by operator,
-                availability, train, and ticket type.
+                Optimized for {pathResult.optimizationLabel}. Cached fare estimate for {pathResult.travelDate}.
+                Live checkout fares vary by operator, availability, train, and ticket type.
               </p>
               <ol className="path-list">
                 {pathResult.path.map((city, index) => (
@@ -628,9 +711,14 @@ function App() {
           {closestResult ? (
             <div className="meeting-result">
               <p>
-                {closestResult.closest} minimizes total travel time from {closestResult.starts.join(', ')}.
+                {closestResult.closest} is best for {closestResult.optimizationLabel} from{' '}
+                {closestResult.starts.join(', ')}.
               </p>
-              <strong>{formatDuration(closestResult.totalMinutes)} combined</strong>
+              <strong>{formatMeetingMetric(closestResult)}</strong>
+              <small>
+                Total time {formatDuration(closestResult.totalMinutes)} · Total price{' '}
+                {formatPrice(closestResult.totalPriceEuros)}
+              </small>
             </div>
           ) : (
             <p className="empty-state">Enter several cities to find the closest shared destination.</p>
