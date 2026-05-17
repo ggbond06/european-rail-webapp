@@ -214,6 +214,16 @@ function App() {
     }
   }, [session?.token]);
 
+  useEffect(() => {
+    if (!cartMessage || currentPath === '/login' || currentPath === '/register') return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setCartMessage('');
+    }, 3500);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [cartMessage, currentPath]);
+
   const routeSegments = useMemo(() => {
     if (!pathResult?.path?.length) return [];
     return pathResult.path.slice(0, -1).map((city, index) => ({
