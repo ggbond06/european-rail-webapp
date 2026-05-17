@@ -602,6 +602,16 @@ h1 {
   margin: 0;
 }
 
+.auth-drawer-body {
+  display: grid;
+  gap: 18px;
+}
+
+.auth-drawer .auth-tabs,
+.auth-drawer .auth-form {
+  width: 100%;
+}
+
 .drawer-close {
   background: #e6ded0;
   color: #17211f;

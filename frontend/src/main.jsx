@@ -175,6 +175,7 @@ function App() {
   });
   const [cartItems, setCartItems] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
   const [cartMessage, setCartMessage] = useState('');
 
   useEffect(() => {
@@ -188,10 +189,19 @@ function App() {
   useEffect(() => {
     if (currentPath === '/register') {
       setAuthMode('register');
+      setAuthOpen(true);
+      setCartOpen(false);
+      window.history.replaceState({}, '', '/');
+      setCurrentPath('/');
     } else if (currentPath === '/login') {
       setAuthMode('login');
+      setAuthOpen(true);
+      setCartOpen(false);
+      window.history.replaceState({}, '', '/');
+      setCurrentPath('/');
     } else if (currentPath === '/cart') {
       setCartOpen(true);
+      setAuthOpen(false);
       window.history.replaceState({}, '', '/');
       setCurrentPath('/');
     }
@@ -215,14 +225,14 @@ function App() {
   }, [session?.token]);
 
   useEffect(() => {
-    if (!cartMessage || currentPath === '/login' || currentPath === '/register') return undefined;
+    if (!cartMessage || authOpen || cartOpen) return undefined;
 
     const timeoutId = window.setTimeout(() => {
       setCartMessage('');
     }, 3500);
 
     return () => window.clearTimeout(timeoutId);
-  }, [cartMessage, currentPath]);
+  }, [cartMessage, authOpen, cartOpen]);
 
   const routeSegments = useMemo(() => {
     if (!pathResult?.path?.length) return [];
@@ -311,6 +321,7 @@ function App() {
       localStorage.setItem('railSession', JSON.stringify(result));
       setAuthForm({ name: '', email: '', password: '' });
       setCartMessage(`Signed in as ${result.user.name}.`);
+      setAuthOpen(false);
       navigateTo('/');
     } catch (err) {
       setCartMessage(err.message);
@@ -320,6 +331,17 @@ function App() {
   function navigateTo(path) {
     window.history.pushState({}, '', path);
     setCurrentPath(path);
+  }
+
+  function openAuth(mode) {
+    setAuthMode(mode);
+    setAuthOpen(true);
+    setCartOpen(false);
+    setCartMessage('');
+    if (window.location.pathname !== '/') {
+      window.history.replaceState({}, '', '/');
+      setCurrentPath('/');
+    }
   }
 
   function signOut() {
@@ -398,27 +420,14 @@ function App() {
     }
   }, [locations]);
 
-  if (currentPath === '/login' || currentPath === '/register') {
-    return (
-      <AuthPage
-        authMode={authMode}
-        authForm={authForm}
-        cartMessage={cartMessage}
-        setAuthForm={setAuthForm}
-        setAuthMode={setAuthMode}
-        submitAuth={submitAuth}
-        navigateTo={navigateTo}
-      />
-    );
-  }
-
   return (
-    <main className={`app-shell ${cartOpen ? 'cart-active' : ''}`}>
+    <main className={`app-shell ${cartOpen || authOpen ? 'cart-active' : ''}`}>
       <TopNav
         session={session}
         signOut={signOut}
         navigateTo={navigateTo}
         openCart={() => setCartOpen(true)}
+        openAuth={openAuth}
       />
       <section className="hero-band">
         <div className="hero-copy">
@@ -582,12 +591,23 @@ function App() {
         navigateTo={navigateTo}
         removeCartItem={removeCartItem}
         checkoutCart={checkoutCart}
+        openAuth={openAuth}
+      />
+      <AuthDrawer
+        open={authOpen}
+        authMode={authMode}
+        authForm={authForm}
+        cartMessage={cartMessage}
+        setAuthForm={setAuthForm}
+        setAuthMode={setAuthMode}
+        submitAuth={submitAuth}
+        closeAuth={() => setAuthOpen(false)}
       />
     </main>
   );
 }
 
-function TopNav({ session, signOut, navigateTo, openCart }) {
+function TopNav({ session, signOut, navigateTo, openCart, openAuth }) {
   function follow(event, path) {
     event.preventDefault();
     navigateTo(path);
@@ -606,8 +626,8 @@ function TopNav({ session, signOut, navigateTo, openCart }) {
           </>
         ) : (
           <>
-            <a href="/login" onClick={(event) => follow(event, '/login')}>Login</a>
-            <a href="/register" onClick={(event) => follow(event, '/register')}>Register</a>
+            <a href="/login" onClick={(event) => { event.preventDefault(); openAuth('login'); }}>Login</a>
+            <a href="/register" onClick={(event) => { event.preventDefault(); openAuth('register'); }}>Register</a>
           </>
         )}
         <button type="button" className="cart-link" aria-label="Open shopping cart" onClick={openCart}>
@@ -622,7 +642,7 @@ function TopNav({ session, signOut, navigateTo, openCart }) {
   );
 }
 
-function CartDrawer({ open, session, cartItems, cartMessage, closeCart, navigateTo, removeCartItem, checkoutCart }) {
+function CartDrawer({ open, session, cartItems, cartMessage, closeCart, navigateTo, removeCartItem, checkoutCart, openAuth }) {
   const total = cartItems.reduce((sum, item) => sum + item.totalPriceEuros, 0);
 
   return (
@@ -674,7 +694,7 @@ function CartDrawer({ open, session, cartItems, cartMessage, closeCart, navigate
               onClick={(event) => {
                 event.preventDefault();
                 closeCart();
-                navigateTo('/login');
+                openAuth('login');
               }}
             >
               Login
@@ -684,7 +704,7 @@ function CartDrawer({ open, session, cartItems, cartMessage, closeCart, navigate
               onClick={(event) => {
                 event.preventDefault();
                 closeCart();
-                navigateTo('/register');
+                openAuth('register');
               }}
             >
               Register
@@ -696,29 +716,25 @@ function CartDrawer({ open, session, cartItems, cartMessage, closeCart, navigate
   );
 }
 
-function AuthPage({ authMode, authForm, cartMessage, setAuthForm, setAuthMode, submitAuth, navigateTo }) {
+function AuthDrawer({ open, authMode, authForm, cartMessage, setAuthForm, setAuthMode, submitAuth, closeAuth }) {
   const isRegistering = authMode === 'register';
 
   function switchMode(mode) {
     setAuthMode(mode);
-    navigateTo(mode === 'register' ? '/register' : '/login');
   }
 
   return (
-    <main className="auth-page">
-      <a
-        className="auth-home-link"
-        href="/"
-        onClick={(event) => {
-          event.preventDefault();
-          navigateTo('/');
-        }}
-      >
-        European Rail Navigator
-      </a>
-      <section className="auth-card" aria-label={isRegistering ? 'Register' : 'Login'}>
-        <p className="eyebrow">Passenger account</p>
-        <h1>{isRegistering ? 'Create your account' : 'Welcome back'}</h1>
+    <aside className={`cart-drawer auth-drawer ${open ? 'open' : ''}`} aria-label={isRegistering ? 'Register' : 'Login'} aria-hidden={!open}>
+      <div className="cart-drawer-header">
+        <div>
+          <p className="eyebrow">Passenger account</p>
+          <h2>{isRegistering ? 'Create your account' : 'Welcome back'}</h2>
+        </div>
+        <button type="button" className="drawer-close" aria-label="Close account panel" onClick={closeAuth}>
+          x
+        </button>
+      </div>
+      <div className="auth-drawer-body">
         <p className="auth-copy">
           {isRegistering
             ? 'Register to save train trips, keep a cart, and purchase estimated tickets.'
@@ -761,8 +777,8 @@ function AuthPage({ authMode, authForm, cartMessage, setAuthForm, setAuthMode, s
           <button type="submit">{isRegistering ? 'Create Account' : 'Login'}</button>
         </form>
         {cartMessage && <p className="cart-message">{cartMessage}</p>}
-      </section>
-    </main>
+      </div>
+    </aside>
   );
 }
 
