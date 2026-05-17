@@ -210,7 +210,6 @@ h1 {
 
 .map-band {
   background: #f6f1e8;
-  border-bottom: 1px solid #d8d2c6;
   padding: 22px clamp(18px, 5vw, 72px) 0;
 }
 
@@ -219,12 +218,12 @@ h1 {
   border: 1px solid #c9d3ce;
   border-radius: 8px;
   margin: 0;
-  min-height: 320px;
+  min-height: 430px;
   overflow: hidden;
 }
 
 .leaflet-route-map {
-  height: 310px;
+  height: 420px;
   width: 100%;
 }
 
@@ -709,11 +708,11 @@ h1 {
   }
 
   .rail-map {
-    min-height: 260px;
+    min-height: 340px;
   }
 
   .leaflet-route-map {
-    height: 250px;
+    height: 330px;
   }
 
   .path-list li {
