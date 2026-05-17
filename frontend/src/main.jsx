@@ -346,6 +346,7 @@ function App() {
     setAuthOpen(true);
     setCartOpen(false);
     setCartMessage('');
+
     if (window.location.pathname !== '/') {
       window.history.replaceState({}, '', '/');
       setCurrentPath('/');
@@ -602,12 +603,22 @@ function App() {
         openAuth={openAuth}
       />
       <AuthDrawer
-        open={authOpen}
-        authMode={authMode}
+        open={authOpen && authMode === 'login'}
+        authMode="login"
         authForm={authForm}
         cartMessage={cartMessage}
         setAuthForm={setAuthForm}
-        setAuthMode={setAuthMode}
+        openAuth={openAuth}
+        submitAuth={submitAuth}
+        closeAuth={() => setAuthOpen(false)}
+      />
+      <AuthDrawer
+        open={authOpen && authMode === 'register'}
+        authMode="register"
+        authForm={authForm}
+        cartMessage={cartMessage}
+        setAuthForm={setAuthForm}
+        openAuth={openAuth}
         submitAuth={submitAuth}
         closeAuth={() => setAuthOpen(false)}
       />
@@ -724,11 +735,11 @@ function CartDrawer({ open, session, cartItems, cartMessage, closeCart, navigate
   );
 }
 
-function AuthDrawer({ open, authMode, authForm, cartMessage, setAuthForm, setAuthMode, submitAuth, closeAuth }) {
+function AuthDrawer({ open, authMode, authForm, cartMessage, setAuthForm, openAuth, submitAuth, closeAuth }) {
   const isRegistering = authMode === 'register';
 
   function switchMode(mode) {
-    setAuthMode(mode);
+    openAuth(mode);
   }
 
   return (
