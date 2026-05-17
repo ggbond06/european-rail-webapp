@@ -171,7 +171,12 @@ code {
 
 .hero-band {
   align-items: stretch;
-  background: #f6f1e8;
+  background:
+    linear-gradient(90deg, rgba(246, 241, 232, 0.96) 0%, rgba(246, 241, 232, 0.86) 42%, rgba(23, 33, 31, 0.18) 100%),
+    linear-gradient(180deg, rgba(23, 33, 31, 0.06), rgba(23, 33, 31, 0.2)),
+    url("./assets/rail-hero.png");
+  background-position: center;
+  background-size: cover;
   border-bottom: 1px solid #d8d2c6;
   display: grid;
   gap: 28px;
@@ -182,6 +187,7 @@ code {
 .hero-copy {
   align-self: center;
   max-width: 680px;
+  text-shadow: 0 1px 18px rgba(246, 241, 232, 0.55);
 }
 
 .eyebrow {
