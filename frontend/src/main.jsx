@@ -200,8 +200,7 @@ function App() {
       window.history.replaceState({}, '', '/');
       setCurrentPath('/');
     } else if (currentPath === '/cart') {
-      setCartOpen(true);
-      setAuthOpen(false);
+      openCart();
       window.history.replaceState({}, '', '/');
       setCurrentPath('/');
     }
@@ -333,6 +332,15 @@ function App() {
     setCurrentPath(path);
   }
 
+  function openCart() {
+    setCartOpen(true);
+    setAuthOpen(false);
+    if (window.location.pathname !== '/') {
+      window.history.replaceState({}, '', '/');
+      setCurrentPath('/');
+    }
+  }
+
   function openAuth(mode) {
     setAuthMode(mode);
     setAuthOpen(true);
@@ -373,7 +381,7 @@ function App() {
       await sendJson('/api/cart', payload);
       await loadCart();
       setCartMessage('Trip added to cart.');
-      setCartOpen(true);
+      openCart();
     } catch (err) {
       setCartMessage(err.message);
     }
@@ -426,7 +434,7 @@ function App() {
         session={session}
         signOut={signOut}
         navigateTo={navigateTo}
-        openCart={() => setCartOpen(true)}
+        openCart={openCart}
         openAuth={openAuth}
       />
       <section className="hero-band">
