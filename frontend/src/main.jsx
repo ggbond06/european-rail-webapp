@@ -589,13 +589,6 @@ function TopNav({ session, signOut, navigateTo, openCart }) {
         European Rail Navigator
       </a>
       <div className="top-nav-actions">
-        <button type="button" className="cart-link" aria-label="Open shopping cart" onClick={openCart}>
-          <svg className="cart-icon" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M6.3 6h15l-1.7 8.2a2 2 0 0 1-2 1.6H9.1a2 2 0 0 1-2-1.7L5.6 3.8H2.8" />
-            <circle cx="9.8" cy="20" r="1.4" />
-            <circle cx="17.5" cy="20" r="1.4" />
-          </svg>
-        </button>
         {session ? (
           <>
             <span>{session.user.name}</span>
@@ -607,6 +600,13 @@ function TopNav({ session, signOut, navigateTo, openCart }) {
             <a href="/register" onClick={(event) => follow(event, '/register')}>Register</a>
           </>
         )}
+        <button type="button" className="cart-link" aria-label="Open shopping cart" onClick={openCart}>
+          <svg className="cart-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M6.3 6h15l-1.7 8.2a2 2 0 0 1-2 1.6H9.1a2 2 0 0 1-2-1.7L5.6 3.8H2.8" />
+            <circle cx="9.8" cy="20" r="1.4" />
+            <circle cx="17.5" cy="20" r="1.4" />
+          </svg>
+        </button>
       </div>
     </nav>
   );
