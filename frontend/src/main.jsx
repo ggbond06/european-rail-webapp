@@ -163,7 +163,8 @@ function App() {
   const [end, setEnd] = useState('Vienna');
   const [travelDate, setTravelDate] = useState(todayString());
   const [pathResult, setPathResult] = useState(null);
-  const [closestInput, setClosestInput] = useState('Amsterdam, Paris, Berlin');
+  const [closestCities, setClosestCities] = useState(['Amsterdam', 'Paris', 'Berlin']);
+  const [closestDraft, setClosestDraft] = useState('');
   const [closestResult, setClosestResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -297,16 +298,51 @@ function App() {
   }
 
   async function findClosest() {
+    const starts = closestDraft.trim()
+      ? [...closestCities, closestDraft.trim()]
+      : closestCities;
+
+    if (starts.length === 0) {
+      setError('Add at least one starting city.');
+      return;
+    }
+
+    setClosestCities([...new Set(starts)]);
+    setClosestDraft('');
     setLoading(true);
     setError('');
     setClosestResult(null);
     try {
-      const params = new URLSearchParams({ from: closestInput });
+      const params = new URLSearchParams({ from: starts.join(', ') });
       setClosestResult(await requestJson(`/api/closest?${params}`));
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  }
+
+  function addClosestCity(rawCity) {
+    const city = rawCity.trim().replace(/,$/, '');
+    if (!city) return;
+    setClosestCities((cities) => (
+      cities.some((existing) => existing.toLowerCase() === city.toLowerCase())
+        ? cities
+        : [...cities, city]
+    ));
+    setClosestDraft('');
+  }
+
+  function removeClosestCity(cityToRemove) {
+    setClosestCities((cities) => cities.filter((city) => city !== cityToRemove));
+  }
+
+  function handleClosestKeyDown(event) {
+    if (event.key === 'Enter' || event.key === ',') {
+      event.preventDefault();
+      addClosestCity(closestDraft);
+    } else if (event.key === 'Backspace' && !closestDraft && closestCities.length > 0) {
+      setClosestCities((cities) => cities.slice(0, -1));
     }
   }
 
@@ -503,16 +539,29 @@ function App() {
         <div className="tool-panel">
           <div className="panel-heading">
             <span>Closest Meeting City</span>
-            <small>Comma-separated starts</small>
+            <small>{closestCities.length} starts selected</small>
           </div>
           <div className="meeting-row">
             <label>
               Starting cities
-              <input
-                value={closestInput}
-                onChange={(event) => setClosestInput(event.target.value)}
-                placeholder="Amsterdam, Paris, Berlin"
-              />
+              <div className="city-tag-input">
+                {closestCities.map((city) => (
+                  <span className="city-tag" key={city}>
+                    {city}
+                    <button type="button" aria-label={`Remove ${city}`} onClick={() => removeClosestCity(city)}>
+                      x
+                    </button>
+                  </span>
+                ))}
+                <input
+                  list="cities"
+                  value={closestDraft}
+                  onBlur={() => addClosestCity(closestDraft)}
+                  onChange={(event) => setClosestDraft(event.target.value)}
+                  onKeyDown={handleClosestKeyDown}
+                  placeholder="Add city"
+                />
+              </div>
             </label>
             <button type="button" onClick={findClosest} disabled={loading}>
               Find Meeting City
