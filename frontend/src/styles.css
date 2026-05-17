@@ -387,6 +387,18 @@ h1 {
   background: #edf4ef;
   border-color: #b9d0c6;
   color: #315047;
+  box-shadow: 0 10px 24px rgba(23, 33, 31, 0.14);
+  font-size: 0.92rem;
+  left: 50%;
+  margin: 0;
+  max-width: min(420px, calc(100vw - 32px));
+  padding: 10px 16px;
+  position: fixed;
+  text-align: center;
+  top: 72px;
+  transform: translateX(-50%);
+  width: max-content;
+  z-index: 1300;
 }
 
 .route-results {
