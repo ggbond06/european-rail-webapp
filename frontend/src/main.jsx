@@ -403,7 +403,7 @@ function App() {
   }
 
   return (
-    <main className="app-shell">
+    <main className={`app-shell ${cartOpen ? 'cart-active' : ''}`}>
       <TopNav
         session={session}
         signOut={signOut}
