@@ -40,10 +40,7 @@ public class WebApp {
             "dist",
             "../frontend/dist"));
     private static final BackendInterface BACKEND = createBackend();
-    private static final PriceCache PRICE_CACHE = new PriceCache(Paths.get(findExistingPath(
-            "data/pricing-cache.tsv",
-            "pricing-cache.tsv",
-            "../data/pricing-cache.tsv")));
+    private static final PriceCache PRICE_CACHE = new PriceCache("localhost", 6379);
     private static final UserStore USER_STORE = new UserStore(Paths.get(findExistingPath(
             "data/users.tsv",
             "users.tsv",
@@ -233,7 +230,7 @@ public class WebApp {
             return;
         }
         PriceCache.CachedPriceResult cachedPrices =
-                PRICE_CACHE.getPrices(path, basePrices, travelDate, priceMultiplier);
+                PRICE_CACHE.getCachedPrices(path, basePrices, travelDate, priceMultiplier);
         List<Double> prices = cachedPrices.getPrices();
 
         double total = sum(times);
@@ -248,7 +245,7 @@ public class WebApp {
                 + "\"optimizationMode\":" + quote(optimizationMode) + ","
                 + "\"optimizationLabel\":" + quote(optimizationLabel(optimizationMode)) + ","
                 + "\"pricingMode\":\"date_adjusted_estimate\","
-                + "\"priceCacheStatus\":" + quote(cachedPrices.getCacheStatus()) + ","
+                + "\"priceCacheStatus\":" + quote(cachedPrices.getCachedStatus()) + ","
                 + "\"priceMultiplier\":" + formatNumber(priceMultiplier) + ","
                 + "\"totalMinutes\":" + formatNumber(total) + ","
                 + "\"totalPriceEuros\":" + formatNumber(totalPrice)
