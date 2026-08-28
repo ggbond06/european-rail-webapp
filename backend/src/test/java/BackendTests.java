@@ -70,23 +70,28 @@ public class BackendTests {
      */
     @Test
     public void roleTest2() {
-        Graph_Placeholder graph = new Graph_Placeholder();
+        GraphADT<String, Double> graph = new DijkstraGraph<>();
         Backend backend = new Backend(graph);
+        try {
+            backend.loadGraphData("data/europeanRail.dot");
+        } catch (IOException e) {
+            fail("loadGraphData threw IOException: " + e.getMessage());
+        }
 
         // Test findLocationsOnShortestPath with the placeholder's hardcoded path
         List<String> path = backend.findLocationsOnShortestPath(
-            "Union South", "Weeks Hall for Geological Sciences");
+            "Vienna", "Amsterdam");
         assertFalse(path.isEmpty(),
             "Path should not be empty for valid start and end in placeholder");
-        assertEquals("Union South", path.get(0),
-            "Path should start with Union South");
-        assertEquals("Weeks Hall for Geological Sciences",
+        assertEquals("Vienna", path.get(0),
+            "Path should start with Vienna");
+        assertEquals("Amsterdam",
             path.get(path.size() - 1),
-            "Path should end with Weeks Hall for Geological Sciences");
+            "Path should end with Amsterdam");
 
         // Test findTimesOnShortestPath for the same path
         List<Double> times = backend.findTimesOnShortestPath(
-            "Union South", "Weeks Hall for Geological Sciences");
+            "Vienna", "Amsterdam");
         assertFalse(times.isEmpty(),
             "Times list should not be empty for a valid path");
         // Times list should have one fewer element than the path
