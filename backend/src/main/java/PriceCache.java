@@ -1,3 +1,4 @@
+import java.net.URI;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -10,10 +11,12 @@ import redis.clients.jedis.Jedis;
 
 public class PriceCache {
     private static final int CACHE_EXPIRATION_SECONDS = 6 * 60 * 60; // 6 hours
+    private static final int REDIS_TIMEOUT_MILLISECONDS = 2000;
     private final JedisPool jedisPool;
 
-    public PriceCache(String redisHost, int redisPort) {
-        this.jedisPool = new JedisPool(new JedisPoolConfig(), redisHost, redisPort);
+    public PriceCache(String redisUrl) {
+        this.jedisPool = new JedisPool(
+                new JedisPoolConfig(), URI.create(redisUrl), REDIS_TIMEOUT_MILLISECONDS);
     }
     
     private String key(LocalDate travelDate, String from, String to) {

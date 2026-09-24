@@ -40,7 +40,8 @@ public class WebApp {
             "dist",
             "../frontend/dist"));
     private static final BackendInterface BACKEND = createBackend();
-    private static final PriceCache PRICE_CACHE = new PriceCache("localhost", 6379);
+    private static final PriceCache PRICE_CACHE = new PriceCache(
+            System.getenv().getOrDefault("REDIS_URL", "redis://localhost:6379"));
     private static final UserStore USER_STORE = new UserStore(Paths.get(findExistingPath(
             "data/users.tsv",
             "users.tsv",
