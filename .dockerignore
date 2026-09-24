@@ -1,0 +1,20 @@
+# Version control and editor files
+.git
+.gitignore
+.vscode
+.idea
+.DS_Store
+
+# Local dependency and build output
+frontend/node_modules
+frontend/dist
+backend/build
+**/*.class
+
+# Runtime-generated local data
+data/users.tsv
+data/carts.tsv
+data/pricing-cache.tsv
+
+# Local deployment metadata
+.vercel
