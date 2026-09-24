@@ -58,7 +58,22 @@ public class PriceCache {
             } else {
                 return new CachedPriceResult(prices, "new");
             }
+        } catch (RuntimeException e) {
+            // Redis is an optional optimization. Cloud deployments without a
+            // Redis service should still be able to calculate route prices.
+            return new CachedPriceResult(
+                    calculatePricesWithoutCache(path, basePrices, multiplier),
+                    "uncached");
         }
+    }
+
+    private List<Double> calculatePricesWithoutCache(
+            List<String> path, List<Double> basePrices, double multiplier) {
+        List<Double> prices = new ArrayList<>();
+        for (int i = 0; i < path.size() - 1; i++) {
+            prices.add(basePrices.get(i) * multiplier);
+        }
+        return prices;
     }
 
     public static class CachedPriceResult {
